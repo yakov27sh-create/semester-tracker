@@ -1,0 +1,51 @@
+const basePastelColors = new Set([
+  "hsl(0, 70%, 80%)",
+  "hsl(20, 70%, 80%)",
+  "hsl(40, 70%, 80%)",
+  "hsl(60, 60%, 80%)",
+  "hsl(80, 55%, 80%)",
+  "hsl(100, 55%, 80%)",
+  "hsl(140, 55%, 80%)",
+  "hsl(160, 55%, 80%)",
+  "hsl(180, 55%, 80%)",
+  "hsl(200, 60%, 80%)",
+  "hsl(220, 65%, 80%)",
+  "hsl(240, 60%, 80%)",
+  "hsl(260, 60%, 80%)",
+  "hsl(280, 65%, 80%)",
+  "hsl(300, 65%, 80%)",
+  "hsl(320, 65%, 80%)",
+  "hsl(340, 65%, 82%)",
+  "hsl(50, 70%, 85%)",
+  "hsl(150, 40%, 85%)",
+  "hsl(210, 40%, 85%)",
+]);
+
+function darkenHsl(hslString: string, amount = 10) {
+  const regex = /hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/;
+  const matches = hslString.match(regex);
+
+  if (!matches) {
+    return hslString;
+  }
+
+  const hue = matches[1]; // "320"
+  const saturation = matches[2]; // "65"
+  const lightness = parseInt(matches[3]); // 80 (as a number)
+
+  const newLightness = Math.max(0, lightness - amount);
+
+  return `hsl(${hue}, ${saturation}%, ${newLightness}%)`;
+}
+
+function makeGradientBackground(hslColor: string) {
+  return `linear-gradient(
+			to bottom,
+			${hslColor},
+			${darkenHsl(hslColor)}
+		)`;
+}
+
+const unknownColor = "hsl(210, 40%, 85%)";
+
+export { basePastelColors, unknownColor, makeGradientBackground, darkenHsl };
