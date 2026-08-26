@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { LayoutGroup, motion } from "motion/react";
 
 import {
   useWeekProgressSummariesQO,
   type WeekProgressSummaries,
 } from "@/features/course-progress/hooks";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/shared/components/ui/radio-group";
 
 type WeekSelectorProps = {
   className?: string;
@@ -17,58 +20,45 @@ type WeekSelectorProps = {
 function WeekSelector(props: WeekSelectorProps) {
   const { data: progressSummaries } = useQuery(useWeekProgressSummariesQO());
 
-  const weekStr = "שבוע";
-  const strings = Array.from({ length: props.numOfWeeks + 1 }).map((_, i) => {
-    if (i < props.selectedWeekNumber - 1) return `${i + 1}`;
-    if (i === props.selectedWeekNumber - 1) return weekStr;
-    return `${i}`;
-  });
+  const weeks = Array.from({ length: props.numOfWeeks }, (_, i) => i + 1);
 
   return (
-    <LayoutGroup>
-      <div className={clsx("flex gap-2 items-end", props.className)}>
-        {strings.map((s, i) => (
-          <motion.div
-            className={clsx("flex flex-col justify-end items-center")}
-            key={"week-" + s}
-            layout
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 40,
-              mass: 0.3,
-            }}
+    <RadioGroup
+      dir="rtl"
+      value={String(props.selectedWeekNumber)}
+      onValueChange={(value) => props.setSelectedWeekNumber(Number(value))}
+      className={clsx("flex items-center gap-2", props.className)}
+      aria-label="שבוע"
+    >
+      {weeks.map((week) => {
+        const isSelected = week === props.selectedWeekNumber;
+        return (
+          <div
+            key={"week-" + week}
+            className="flex h-11 flex-col items-center justify-center gap-1 md:h-13"
           >
-            {s != weekStr && (
-              <div
-                className="h-1 w-1 rounded-full translate-y-0.5"
-                style={{
-                  background: progressStringToColor(
-                    progressSummaries?.[Number(s)],
-                  ),
-                }}
-              />
-            )}
-            <button
-              onClick={() =>
-                Number(s) && props.setSelectedWeekNumber(Number(s))
-              }
+            <div
+              className="h-1 w-1 rounded-full"
+              style={{
+                background: progressStringToColor(progressSummaries?.[week]),
+              }}
+            />
+            <RadioGroupItem
+              value={String(week)}
               className={clsx(
-                "select-none  ",
-                Number(s) === props.selectedWeekNumber || s === "שבוע"
-                  ? "text-2xl md:text-5xl"
-                  : "text-xs md:text-lg hover:scale-110 cursor-pointer",
-                progressStringToTWClass(
-                  progressSummaries?.[s === "שבוע" ? i + 1 : Number(s)],
-                ),
+                "flex aspect-square shrink-0 items-center justify-center border-0 text-sm leading-none font-bold shadow-none select-none cursor-pointer transition-all duration-200 md:text-base",
+                isSelected
+                  ? "size-9 rounded-full bg-accent md:size-11"
+                  : "size-7 bg-transparent md:size-9 hover:scale-110",
+                progressStringToTWClass(progressSummaries?.[week]),
               )}
             >
-              {s}
-            </button>
-          </motion.div>
-        ))}
-      </div>
-    </LayoutGroup>
+              {week}
+            </RadioGroupItem>
+          </div>
+        );
+      })}
+    </RadioGroup>
   );
 }
 

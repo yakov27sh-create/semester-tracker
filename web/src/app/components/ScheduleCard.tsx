@@ -24,7 +24,7 @@ import ResourceList from "@/features/resources/components/ScrollList";
 
 const TEXT_STYLE: React.CSSProperties = {
   fontWeight: "bold",
-  color: "var(--secondary)",
+  color: "var(--course-text)",
 };
 
 type ScheduleCardProps = {
@@ -126,7 +126,7 @@ function ScheduleCard({
       <div className="flex gap-2">
         <div>
           <WeeklySessionTypeProgressCard
-            className="mb-1 mt-1 border-b border-secondary text-truncate"
+            className="mb-1 mt-1 border-b border-course-text text-truncate"
             textStyles={{
               ...TEXT_STYLE,
               opacity: completionPercent === 100 ? "0.6" : "1",

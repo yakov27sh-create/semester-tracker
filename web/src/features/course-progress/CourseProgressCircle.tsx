@@ -81,8 +81,9 @@ function CourseProgressCircle(props: CourseProgressRingProps) {
                       x={viewBox.cx}
                       y={viewBox.cy}
                       className={clsx(
-                        "fill-secondary text-sm font-bold",
-                        progressInfo?.left === 0 && "line-through opacity-50",
+                        "fill-course-text text-sm font-bold",
+                        progressInfo?.left === 0 &&
+                          "line-through decoration-course-text opacity-50",
                       )}
                     >
                       {displayName}

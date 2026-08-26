@@ -62,7 +62,9 @@ function WeeklySessionTypeProgressCard(
     >
       <div
         className={clsx(
-          completionPercent === 100 ? "line-through decoration-secondary " : "",
+          completionPercent === 100
+            ? "line-through decoration-course-text "
+            : "",
           props.className,
         )}
       >
@@ -115,16 +117,19 @@ function CompleteButton() {
     useWSTPCContext();
   return (
     <button
-      className="aspect-square 
-		flex items-center justify-center
-		rounded-full 
-		min-h-4 sm:min-h-8
-		max-h-10 
-
-		bg-completion
-		shadow-md
-		hover:scale-120 cursor-pointer
-		"
+      className={clsx(
+        "group",
+        "aspect-square",
+        "flex items-center justify-center",
+        "rounded-full",
+        "min-h-4 sm:min-h-8",
+        "max-h-10",
+        "bg-completion",
+        "border-3 border-course-text",
+        "shadow-md",
+        "hover:scale-120 cursor-pointer",
+        completionPercent !== 100 && "opacity-40",
+      )}
       onClick={(e) => {
         e.stopPropagation();
         toggleTimeSlotsTrigger.mutate({
@@ -135,7 +140,13 @@ function CompleteButton() {
         });
       }}
     >
-      {completionPercent === 100 && <CheckIcon />}
+      <CheckIcon
+        strokeWidth={2.5}
+        className={clsx(
+          "text-course-text",
+          completionPercent !== 100 && "opacity-0 group-hover:opacity-100",
+        )}
+      />
     </button>
   );
 }

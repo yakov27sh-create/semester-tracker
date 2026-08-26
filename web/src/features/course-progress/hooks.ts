@@ -4,6 +4,10 @@ import { setIntersection } from "@/shared/utils/set";
 
 import { useUserCoursesQueryOptions } from "@/entities/user-course/hooks";
 import type { SessionType, SlotIndex } from "@/entities/course/types";
+import {
+  useCurrentWeekNumber,
+  useTotalWeekCount,
+} from "@/entities/semester/hooks";
 
 function useWeeklySessionTypeProgressQO(
   courseId: string,
@@ -36,8 +40,14 @@ function useWeeklySessionTypeProgressQO(
 
 function useCourseProgressQO(courseId: string) {
   const userCoursesQO = useUserCoursesQueryOptions();
-  const currentWeekNum = 8;
-  const totalWeeks = 13;
+  const totalWeeks = useTotalWeekCount() ?? 0;
+  // currentWeekNum can be negative (semester hasn't started) or greater than
+  // totalWeeks (semester ended); clamp so slot counts and week slices below
+  // stay within valid, non-negative bounds.
+  const currentWeekNum = Math.min(
+    Math.max(useCurrentWeekNumber() ?? 0, 0),
+    totalWeeks,
+  );
 
   return queryOptions({
     ...userCoursesQO,
@@ -53,7 +63,7 @@ function useCourseProgressQO(courseId: string) {
         left: 0,
       };
 
-      for (const sessionType in courseProgress) {
+      for (const sessionType in courseSchedule) {
         const selectedSectionId = selectedSectionIds[sessionType];
         const filterKey =
           selectedSectionId ?? courseSchedule[sessionType][0].sectionId;
@@ -72,7 +82,7 @@ function useCourseProgressQO(courseId: string) {
 
         // collction of time slots the user has completed, grouped by week
         const progressSortedByWeek = Object.entries(
-          courseProgress[sessionType],
+          courseProgress[sessionType] ?? {},
         ).sort((a, b) => Number(a[0]) - Number(b[0]));
 
         // subgroup consisting of week groups that have ended
@@ -118,20 +128,26 @@ export type WeekProgressSummaries = (
 
 function useWeekProgressSummariesQO() {
   const userCoursesQO = useUserCoursesQueryOptions();
-  const currentWeekNum = 8;
-  const totalWeeks = 13;
+  const currentWeekNum = useCurrentWeekNumber() ?? 0;
+  const totalWeeks = useTotalWeekCount() ?? 0;
 
   return queryOptions({
     ...userCoursesQO,
     select: (data) => {
-      const summary: WeekProgressSummaries = Array(totalWeeks + 1).fill(
+      const arrLen = totalWeeks + 1;
+      // currentWeekNum can be negative (semester hasn't started) or greater
+      // than totalWeeks (semester ended); clamp to valid array bounds.
+      const completedEnd = Math.min(Math.max(currentWeekNum, 0), arrLen);
+      const defaultStart = Math.min(Math.max(currentWeekNum + 1, 0), arrLen);
+
+      const summary: WeekProgressSummaries = Array(arrLen).fill(
         "completed",
         0,
-        currentWeekNum,
+        completedEnd,
       );
-      summary.fill("default", currentWeekNum + 1, totalWeeks + 1);
+      summary.fill("default", defaultStart, arrLen);
 
-      for (let weekNum = 0; weekNum < totalWeeks; weekNum++) {
+      for (let weekNum = 1; weekNum <= totalWeeks; weekNum++) {
         for (const courseId in data) {
           if (
             summary[weekNum] != "completed" &&
@@ -143,7 +159,7 @@ function useWeekProgressSummariesQO() {
           const courseProgress = data[courseId].courseProgress;
           const courseSchedule = data[courseId].courseMeta.schedule;
 
-          for (const sessionType in data[courseId].courseProgress) {
+          for (const sessionType in courseSchedule) {
             const selectedSectionId = selectedSectionIds[sessionType];
             const filterKey =
               selectedSectionId ?? courseSchedule[sessionType][0].sectionId;

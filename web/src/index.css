@@ -44,6 +44,7 @@
   --color-ahead: var(--ahead);
   --color-behind: var(--behind);
   --color-section-select: var(--section-select);
+  --color-course-text: var(--course-text);
 }
 
 
@@ -87,6 +88,8 @@
 
   --section-select: oklch(0.5929 0.1598 238.87);
 
+  /* Same value in both themes for now — the dark theme's --secondary. */
+  --course-text: oklch(0.269 0 0);
 }
 
 
@@ -128,6 +131,8 @@
   --behind: oklch(0.5929 0.256 39.81);
 
   --section-select: oklch(0.5929 0.1598 238.87);
+
+  --course-text: oklch(0.269 0 0);
 }
 
 
