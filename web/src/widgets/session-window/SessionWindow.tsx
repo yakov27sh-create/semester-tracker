@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, RefreshCwIcon } from "lucide-react";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -94,65 +94,75 @@ function SessionWindow(props: SessionWindowProps) {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col items-center gap-0.5 text-center text-sm">
-            <div className="font-bold">{props.sessionType}</div>
-            <div className="text-muted-foreground">{`שבוע: ${props.weekNumber}`}</div>
-            {scheduleItem && (
-              <>
-                <div className="text-muted-foreground">
-                  {generateDayStrings([scheduleItem.dayOfWeek])[0]}
-                  {", "}
-                  {makeTimeString(
-                    scheduleItem.startMinute,
-                    scheduleItem.endMinute,
-                  )}
-                </div>
-                <div className="text-muted-foreground">
-                  {scheduleItem.instructor}
-                </div>
-              </>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="flex justify-between items-center">
-            <button
-              className={clsx(
-                "group",
-                "aspect-square",
-                "flex items-center justify-center",
-                "rounded-full",
-                "min-h-8",
-                "bg-completion",
-                "border-3 border-border",
-                "shadow-md",
-                "hover:scale-110 cursor-pointer",
-                !isComplete && "opacity-40",
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col items-center gap-0.5 text-center text-sm">
+              <div className="font-bold">{props.sessionType}</div>
+              <div className="text-muted-foreground">{`שבוע: ${props.weekNumber}`}</div>
+              {scheduleItem && (
+                <>
+                  <div className="text-muted-foreground">
+                    {generateDayStrings([scheduleItem.dayOfWeek])[0]}
+                    {", "}
+                    {makeTimeString(
+                      scheduleItem.startMinute,
+                      scheduleItem.endMinute,
+                    )}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {scheduleItem.instructor}
+                  </div>
+                </>
               )}
-              onClick={() =>
-                toggleTimeSlotsTrigger.mutate({
-                  courseId: props.courseId,
-                  sessionType: props.sessionType,
-                  weekNumber: props.weekNumber,
-                  timeslots: props.timeSlots,
-                })
-              }
-            >
-              <CheckIcon
-                strokeWidth={2.5}
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <button
                 className={clsx(
-                  !isComplete && "opacity-0 group-hover:opacity-100",
+                  "group",
+                  "aspect-square",
+                  "flex items-center justify-center",
+                  "rounded-full",
+                  "min-h-8",
+                  "bg-completion",
+                  "border-3 border-border",
+                  "shadow-md",
+                  "hover:scale-110 cursor-pointer",
+                  !isComplete && "opacity-40",
                 )}
-              />
-            </button>
-            <Button
-              variant="outline"
-              disabled={!props.onChangeSelection}
-              onClick={() => props.onChangeSelection?.()}
-            >
-              שנה בחירה
-            </Button>
+                onClick={() =>
+                  toggleTimeSlotsTrigger.mutate({
+                    courseId: props.courseId,
+                    sessionType: props.sessionType,
+                    weekNumber: props.weekNumber,
+                    timeslots: props.timeSlots,
+                  })
+                }
+              >
+                <CheckIcon
+                  strokeWidth={2.5}
+                  className={clsx(
+                    !isComplete && "opacity-0 group-hover:opacity-100",
+                  )}
+                />
+              </button>
+              <button
+                className={clsx(
+                  "aspect-square",
+                  "flex items-center justify-center",
+                  "rounded-full",
+                  "min-h-8",
+                  "bg-secondary",
+                  "border-3 border-border",
+                  "shadow-md",
+                  "hover:scale-110 cursor-pointer",
+                  "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
+                )}
+                disabled={!props.onChangeSelection}
+                onClick={() => props.onChangeSelection?.()}
+              >
+                <RefreshCwIcon strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
 
           <Separator />
