@@ -58,6 +58,11 @@ function useUserCoursesQueryOptions() {
       return userCourses;
     },
     enabled: !!profile && !!selectedSemesterId,
+    // Mutations on this data keep the cache correct via setQueryData
+    // (onMutate/onSuccess) — there's nothing for a background refetch to
+    // reconcile, and the default staleTime would otherwise cause a refetch
+    // storm on every focus change / component mount touching this query.
+    staleTime: Infinity,
   });
 }
 

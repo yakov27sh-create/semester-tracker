@@ -61,7 +61,14 @@ function CourseProgressCircle(props: CourseProgressRingProps) {
 
             return (
               <g>
-                <circle cx={cx} cy={cy} r={innerRadius - 5} fill={color} />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={innerRadius - 5}
+                  fill={color}
+                  stroke="var(--border)"
+                  strokeWidth={3}
+                />
               </g>
             );
           }}

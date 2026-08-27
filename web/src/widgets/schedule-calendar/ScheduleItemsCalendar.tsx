@@ -21,6 +21,7 @@ import type { ScheduleItem } from "@/entities/course/types";
 type ScheduleItemsCalendarProps = {
   weekNum: WeekNumber;
   className?: string;
+  onClickScheduleCard?: (item: ScheduleItem) => void;
 };
 
 function ScheduleItemsCalendar(props: ScheduleItemsCalendarProps) {
@@ -83,6 +84,7 @@ function ScheduleItemsCalendar(props: ScheduleItemsCalendarProps) {
                 !e.isSelected && setHoveredKey(makeHoverKey(e))
               }
               onMouseLeave={() => !e.isSelected && setHoveredKey(null)}
+              onClick={props.onClickScheduleCard}
             />
           </div>
         )}

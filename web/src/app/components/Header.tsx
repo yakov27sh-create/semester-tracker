@@ -12,7 +12,7 @@ import CourseSearchBar from "@/features/course-search/CourseSearchBar";
 import SemesterSearchBar from "@/features/semester-search/SemesterSearchBar";
 import CourseProgressCircle from "@/features/course-progress/CourseProgressCircle";
 
-import CourseWindow from "./CourseWindow";
+import CourseWindow from "@/widgets/course-window/CourseWindow";
 import { useTheme } from "../hooks";
 import { Spinner } from "@/shared/components/ui/spinner";
 
