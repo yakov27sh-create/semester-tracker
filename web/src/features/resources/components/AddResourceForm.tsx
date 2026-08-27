@@ -13,6 +13,8 @@ import { useAddResourceMO } from "../hooks";
 import type { ResourceMeta } from "@/entities/user-course/types";
 import { useState } from "react";
 
+type ResourceMode = "file" | "link";
+
 function AddResourcePopover({
   onToggle,
   courseId,
@@ -23,9 +25,19 @@ function AddResourcePopover({
   courseId: string;
   resourceMeta: Omit<ResourceMeta, "title" | "url" | "storagePath">;
 }) {
+  const [mode, setMode] = useState<ResourceMode>("file");
   const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState<string>("");
   const [title, setTitle] = useState<string | null>(null);
   const addResourceTrigger = useMutation(useAddResourceMO());
+
+  const resource = mode === "file" ? file : url.trim() || null;
+
+  const resetForm = () => {
+    setFile(null);
+    setUrl("");
+    setTitle(null);
+  };
 
   return (
     <Popover>
@@ -44,38 +56,78 @@ function AddResourcePopover({
           <div className="space-y-2">
             <p className="text-muted-foreground text-sm">העלה קובץ או קישור</p>
           </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={mode === "file" ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                setMode("file");
+                setUrl("");
+              }}
+            >
+              קובץ
+            </Button>
+            <Button
+              type="button"
+              variant={mode === "link" ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                setMode("link");
+                setFile(null);
+              }}
+            >
+              קישור
+            </Button>
+          </div>
           <div className="grid gap-2">
             <div className="grid grid-cols-3 items-center gap-4">
-              <Label htmlFor="width">כותרת</Label>
+              <Label htmlFor="title">כותרת</Label>
               <Input
-                id="width"
+                id="title"
                 className="col-span-2 h-8"
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-3 items-center gap-4">
-              <Label htmlFor="maxWidth">קובץ</Label>
-              <Input
-                type="file"
-                className="col-span-2 h-8"
-                onChange={(e) => e.target.files && setFile(e.target.files[0])}
-              />
-            </div>
+            {mode === "file" ? (
+              <div className="grid grid-cols-3 items-center gap-4">
+                <Label htmlFor="file">קובץ</Label>
+                <Input
+                  id="file"
+                  type="file"
+                  className="col-span-2 h-8"
+                  onChange={(e) => e.target.files && setFile(e.target.files[0])}
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 items-center gap-4">
+                <Label htmlFor="url">קישור</Label>
+                <Input
+                  id="url"
+                  type="url"
+                  placeholder="https://"
+                  className="col-span-2 h-8"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              </div>
+            )}
             <Button
               variant="outline"
               disabled={addResourceTrigger.isPending}
               onClick={() => {
-                if (!file || !title) return;
+                if (!resource || !title) return;
                 addResourceTrigger.mutate(
                   {
                     courseId: courseId,
-                    resource: file,
+                    resource,
                     resourceMeta: { ...resourceMeta, title: title },
                   },
                   {
                     onSuccess: () => {
-                      setFile(null);
-                      setTitle(null);
+                      resetForm();
                       onToggle?.();
                     },
                   },
