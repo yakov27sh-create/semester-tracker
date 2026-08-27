@@ -22,6 +22,7 @@ type ScheduleItemsCalendarProps = {
   weekNum: WeekNumber;
   className?: string;
   onClickScheduleCard?: (item: ScheduleItem) => void;
+  isEditMode?: boolean;
 };
 
 function ScheduleItemsCalendar(props: ScheduleItemsCalendarProps) {
@@ -85,6 +86,7 @@ function ScheduleItemsCalendar(props: ScheduleItemsCalendarProps) {
               }
               onMouseLeave={() => !e.isSelected && setHoveredKey(null)}
               onClick={props.onClickScheduleCard}
+              isEditMode={props.isEditMode ?? false}
             />
           </div>
         )}

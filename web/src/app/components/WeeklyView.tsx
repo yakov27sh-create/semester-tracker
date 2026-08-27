@@ -24,11 +24,19 @@ function WeeklyView(props: WeeklyViewProps) {
     undefined,
   );
   const [openSession, setOpenSession] = useState<ScheduleItem | null>(null);
+  const [isEditModeOverride, setIsEditModeOverride] = useState<
+    boolean | undefined
+  >(undefined);
   const toggleSelectionTrigger = useMutation(useToggleSelectedSectionMO());
 
   // Default to the current week of the semester until the user picks one.
   const week = selectedWeek ?? currentWeekNumber;
   if (week === undefined || totalWeekCount === undefined) return null;
+
+  // Default into edit mode before the semester starts or after it ends,
+  // until the user explicitly picks a mode themselves.
+  const isEditMode =
+    isEditModeOverride ?? (week < 0 || week > totalWeekCount);
 
   return (
     <div className={clsx("flex flex-col", props.className)}>
@@ -37,12 +45,15 @@ function WeeklyView(props: WeeklyViewProps) {
           numOfWeeks={totalWeekCount}
           setSelectedWeekNumber={setSelectedWeek}
           selectedWeekNumber={week}
+          isEditMode={isEditMode}
+          setIsEditMode={setIsEditModeOverride}
         />
       </div>
       <ScheduleItemsCalendar
         className="flex-1"
         weekNum={week}
         onClickScheduleCard={setOpenSession}
+        isEditMode={isEditMode}
       />
       <SessionWindow
         courseId={openSession?.courseId ?? ""}

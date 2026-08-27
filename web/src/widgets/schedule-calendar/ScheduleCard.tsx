@@ -26,6 +26,7 @@ type ScheduleCardProps = {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onClick?: (item: ScheduleItem) => void;
+  isEditMode: boolean;
   attributes?: React.HTMLAttributes<HTMLDivElement>;
 };
 
@@ -38,6 +39,7 @@ function ScheduleCard({
   onMouseEnter,
   onMouseLeave,
   onClick,
+  isEditMode,
 }: ScheduleCardProps) {
   const courseColor = useCourseColor(item.courseId);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,6 @@ function ScheduleCard({
   const toggleTimeSlotsTrigger = useMutation(useToggleTimeslotsMO());
   const toggleSelectionTrigger = useMutation(useToggleSelectedSectionMO());
   const isComplete = completionPercent === 100;
-  const isBeforeSemesterStart = weekNumber < 0;
 
   useClickOutside(containerRef, () => {
     onMouseLeave?.();
@@ -83,7 +84,7 @@ function ScheduleCard({
       }}
       onClick={(e) => {
         e.stopPropagation();
-        if (isSelected && isBeforeSemesterStart) {
+        if (isSelected && isEditMode) {
           toggleSelectionTrigger.mutate({
             courseId: item.courseId,
             sessionType: item.sessionType,
@@ -113,19 +114,21 @@ function ScheduleCard({
     >
       <div className="flex flex-col items-center gap-0.5 text-center font-bold text-course-text">
         <div className="text-[0.6rem] sm:text-sm">{item.sessionType}</div>
-        <div
-          className={clsx(
-            "text-[0.5rem] sm:text-xs",
-            isComplete && "opacity-60 line-through decoration-course-text",
-          )}
-        >{`שבוע: ${weekNumber}`}</div>
+        {!isEditMode && (
+          <div
+            className={clsx(
+              "text-[0.5rem] sm:text-xs",
+              isComplete && "opacity-60 line-through decoration-course-text",
+            )}
+          >{`שבוע: ${weekNumber}`}</div>
+        )}
         <div className="text-[0.4rem] sm:text-xs">{courseName}</div>
         <div className="text-[0.5rem] sm:text-xs">{`קב' 0`}</div>
         <div className="text-[0.5rem] sm:text-xs">{item.instructor}</div>
         <div className="text-[0.6rem]">{timeString}</div>
       </div>
 
-      {isSelected && !isBeforeSemesterStart && (
+      {isSelected && !isEditMode && (
         <div className="absolute top-1 left-1 flex flex-col gap-1">
           <button
             className={clsx(
