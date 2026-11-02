@@ -7,41 +7,40 @@ import {
 import type { Course, SlotIndex, SessionType } from "../course/types";
 
 import type {
-  UserCourse,
-  UserCourse_DB,
+  Enrollment,
+  Enrollment_DB,
   CourseProgress,
   CourseProgressDB,
   WeekNumber,
   WeeklySessionTypeProgress,
 } from "./types";
 
-function createUserCourse_DB(
+function createEnrollment_DB(
   userId: string,
   courseId: string,
   semesterId: string,
-): UserCourse_DB {
+): Enrollment_DB {
   return {
     userId,
     courseId,
     semesterId,
     courseProgress: {},
     courseSelectedSections: {},
-    resources: [],
   };
 }
 
-function createUserCourse(
-  userCourseDB: UserCourse_DB,
+function createEnrollment(
+  enrollmentDB: Enrollment_DB,
   course: Course,
-): UserCourse {
-  const userCourse: UserCourse = {
-    ...userCourseDB,
+): Enrollment {
+  const enrollment: Enrollment = {
+    ...enrollmentDB,
     courseProgress: convertCourseProgressDBtoCourseProgress(
-      userCourseDB.courseProgress,
+      enrollmentDB.courseProgress,
     ),
     courseMeta: course,
   };
-  return userCourse;
+  return enrollment;
 }
 
 function convertCourseProgressDBtoCourseProgress(
@@ -64,11 +63,11 @@ function convertCourseProgressDBtoCourseProgress(
 }
 
 function toggleSelectedSection(
-  userCourse: UserCourse,
+  enrollment: Enrollment,
   sessionType: string,
   sectionId: string,
 ) {
-  const copy = structuredClone(userCourse);
+  const copy = structuredClone(enrollment);
   const currentSectionId = copy.courseSelectedSections[sessionType];
   const newId = currentSectionId === sectionId ? null : sectionId;
   copy.courseSelectedSections[sessionType] = newId;
@@ -76,12 +75,12 @@ function toggleSelectedSection(
 }
 
 function toggleTimeslots(
-  userCourse: UserCourse,
+  enrollment: Enrollment,
   sessionType: string,
   weekNumber: number,
   timeslots: Set<SlotIndex>,
 ) {
-  const copy = structuredClone(userCourse);
+  const copy = structuredClone(enrollment);
   const currentSlots =
     copy.courseProgress[sessionType]?.[weekNumber] ?? new Set();
   if (!copy.courseProgress[sessionType]) copy.courseProgress[sessionType] = [];
@@ -97,8 +96,8 @@ function toggleTimeslots(
 }
 
 export {
-  createUserCourse_DB,
-  createUserCourse,
+  createEnrollment_DB,
+  createEnrollment,
   toggleSelectedSection,
   toggleTimeslots,
 };

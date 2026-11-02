@@ -35,15 +35,20 @@ create policy "semesters_select_authenticated"
 -- Course catalog. Seeded by admin scripts using the service role key, never
 -- written to directly by clients.
 create table if not exists public.courses (
-  id text primary key,
+  id uuid primary key default gen_random_uuid(),
   university text not null,
   semester_id text not null references public.semesters (id),
   name text not null,
   faculty text,
-  given_id text not null,
+  -- The university's own course number (e.g. Technion's "מספר מקצוע").
+  -- Not unique on its own: the same course is a separate row per semester.
+  course_number text not null,
   default_color text not null,
   points numeric not null,
-  schedule jsonb not null default '{}'::jsonb
+  schedule jsonb not null default '{}'::jsonb,
+  -- Natural key the seed script upserts on, so re-seeding keeps each
+  -- course's generated id stable.
+  unique (university, semester_id, course_number)
 );
 
 alter table public.courses enable row level security;
@@ -63,61 +68,123 @@ create policy "courses_select_authenticated"
 -- No insert/update/delete policies here on purpose: catalog writes go
 -- through the service role (admin seeding scripts), which bypasses RLS.
 
--- ==== 2.user_courses.sql ====
+-- ==== 2.enrollments.sql ====
 -- Per-user course state: progress, selected sections, custom color.
-create table if not exists public.user_courses (
+-- Rows are never deleted by clients: "removing" a course sets is_enrolled to
+-- false, and re-adding it flips it back, so progress/sections/color survive.
+create table if not exists public.enrollments (
   user_id uuid not null references auth.users (id) on delete cascade,
-  course_id text not null references public.courses (id) on delete cascade,
+  course_id uuid not null references public.courses (id) on delete cascade,
   semester_id text not null,
   course_progress jsonb not null default '{}'::jsonb,
   course_selected_sections jsonb not null default '{}'::jsonb,
   custom_color text,
-  resources jsonb not null default '[]'::jsonb,
+  is_enrolled boolean not null default true,
   primary key (user_id, course_id, semester_id)
 );
 
-alter table public.user_courses enable row level security;
+alter table public.enrollments enable row level security;
 
 -- Table-level grants: Postgres checks these before RLS is ever evaluated,
 -- so without them every role is locked out regardless of policy.
-grant select, insert, update, delete on public.user_courses to authenticated;
-grant select, insert, update, delete on public.user_courses to service_role;
+grant select, insert, update on public.enrollments to authenticated;
+grant select, insert, update, delete on public.enrollments to service_role;
 
-create policy "user_courses_select_own"
-  on public.user_courses
+create policy "enrollments_select_own"
+  on public.enrollments
   for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "user_courses_insert_own"
-  on public.user_courses
+create policy "enrollments_insert_own"
+  on public.enrollments
   for insert
   to authenticated
   with check (auth.uid() = user_id);
 
-create policy "user_courses_update_own"
-  on public.user_courses
+create policy "enrollments_update_own"
+  on public.enrollments
   for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy "user_courses_delete_own"
-  on public.user_courses
+
+-- ==== 3.resources.sql ====
+-- Course resources (uploaded files / links), one row per resource. Used to
+-- live as a jsonb array on enrollments.resources; split out into its own
+-- table so each resource has a real id (instead of being identified by an
+-- ad-hoc storagePath/url match) and a proper foreign key onto the course a
+-- user is taking it in.
+create table if not exists public.user_course_resources (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  course_id uuid not null,
+  semester_id text not null,
+  session_type text not null,
+  week_number integer not null,
+  time_slots integer[] not null,
+  title text not null,
+  -- Uploaded files carry storage_path (the signed URL is resolved on read,
+  -- never persisted — see useResourceSignedUrlsQO); external links carry
+  -- url instead. Exactly one of the two is set.
+  url text,
+  storage_path text,
+  created_at timestamptz not null default now(),
+  -- Ties each resource to a specific course enrollment, and cascades when
+  -- that enrollment is dropped — same lifetime resources had when they
+  -- lived inline on enrollments.
+  foreign key (user_id, course_id, semester_id)
+    references public.enrollments (user_id, course_id, semester_id)
+    on delete cascade,
+  constraint user_course_resources_url_xor_storage_path
+    check ((url is null) <> (storage_path is null))
+);
+
+-- Supports the per-user-per-semester list fetch (see
+-- fetchUserCourseResources) — the same shape enrollments' own query uses.
+create index if not exists user_course_resources_user_semester_idx
+  on public.user_course_resources (user_id, semester_id);
+
+alter table public.user_course_resources enable row level security;
+
+-- Table-level grants: Postgres checks these before RLS is ever evaluated,
+-- so without them every role is locked out regardless of policy.
+grant select, insert, update, delete on public.user_course_resources to authenticated;
+grant select, insert, update, delete on public.user_course_resources to service_role;
+
+create policy "user_course_resources_select_own"
+  on public.user_course_resources
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "user_course_resources_insert_own"
+  on public.user_course_resources
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "user_course_resources_update_own"
+  on public.user_course_resources
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "user_course_resources_delete_own"
+  on public.user_course_resources
   for delete
   to authenticated
   using (auth.uid() = user_id);
 
--- ==== 3.rpc.sql ====
+-- ==== 4.rpc.sql ====
 -- Stored procedures / RPC functions exposed via PostgREST.
 
--- Mirrors web/src/entities/user-course/object.ts:toggleTimeslots — given the
--- slot indices belonging to one schedule item, marks them all complete
+-- given the slot indices belonging to one schedule item, marks them all complete
 -- unless they're already all complete, in which case it marks them all
--- incomplete. Done server-side (instead of read-modify-write from the
--- client) so concurrent toggles from multiple tabs/devices can't race and
--- clobber each other.
---
+-- incomplete.
+
 -- p_user_id is explicit (rather than always trusting auth.uid()) so the
 -- same function serves two callers:
 --   - the web app, calling for its own signed-in user
@@ -127,7 +194,7 @@ create policy "user_courses_delete_own"
 -- authorization check below stands in for RLS for this one function.
 create or replace function public.toggle_course_progress(
   p_user_id uuid,
-  p_course_id text,
+  p_course_id uuid,
   p_semester_id text,
   p_session_type text,
   p_week_number integer,
@@ -149,14 +216,14 @@ begin
 
   select course_progress
   into v_progress
-  from public.user_courses
+  from public.enrollments
   where user_id = p_user_id
     and course_id = p_course_id
     and semester_id = p_semester_id
   for update;
 
   if not found then
-    raise exception 'user_courses row not found for course % (semester %)',
+    raise exception 'enrollments row not found for course % (semester %)',
       p_course_id, p_semester_id;
   end if;
 
@@ -186,7 +253,7 @@ begin
     ) as t(v);
   end if;
 
-  update public.user_courses
+  update public.enrollments
   set course_progress = jsonb_set(
     jsonb_set(
       coalesce(course_progress, '{}'::jsonb),
@@ -206,55 +273,130 @@ begin
 end;
 $$;
 
-revoke all on function public.toggle_course_progress(uuid, text, text, text, integer, integer[]) from public;
-grant execute on function public.toggle_course_progress(uuid, text, text, text, integer, integer[])
+revoke all on function public.toggle_course_progress(uuid, uuid, text, text, integer, integer[]) from public;
+grant execute on function public.toggle_course_progress(uuid, uuid, text, text, integer, integer[])
   to authenticated, service_role;
 
--- Appends one resource (file/link metadata) onto a user_courses row's
--- resources array. A single `||` concat in one UPDATE is already atomic —
--- unlike toggle_course_progress there's no read-then-recompute step, so no
--- `select ... for update` lock is needed here.
+-- Inserts one resource (file/link metadata) row for a course. Trivial now
+-- that resources are their own table (see supabase/schemas/3.resources.sql)
+-- — RLS would already enforce ownership on a plain insert, but this stays a
+-- security definer RPC (explicit p_user_id) for consistency with the rest
+-- of this file, so a future admin dashboard can call it via service_role.
 create or replace function public.add_user_course_resource(
   p_user_id uuid,
-  p_course_id text,
+  p_course_id uuid,
   p_semester_id text,
-  p_resource jsonb
+  p_session_type text,
+  p_week_number integer,
+  p_timeslots integer[],
+  p_title text,
+  p_url text,
+  p_storage_path text
 )
-returns jsonb
+returns public.user_course_resources
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  v_resources jsonb;
+  v_resource public.user_course_resources;
 begin
   if auth.uid() is distinct from p_user_id and auth.role() <> 'service_role' then
     raise exception 'not authorized to modify resources for user %', p_user_id;
   end if;
 
-  update public.user_courses
-  set resources = coalesce(resources, '[]'::jsonb) || jsonb_build_array(p_resource)
-  where user_id = p_user_id
-    and course_id = p_course_id
-    and semester_id = p_semester_id
-  returning resources into v_resources;
+  insert into public.user_course_resources (
+    user_id, course_id, semester_id, session_type, week_number, time_slots, title, url, storage_path
+  )
+  values (
+    p_user_id, p_course_id, p_semester_id, p_session_type, p_week_number, p_timeslots, p_title, p_url, p_storage_path
+  )
+  returning * into v_resource;
 
-  if not found then
-    raise exception 'user_courses row not found for course % (semester %)',
-      p_course_id, p_semester_id;
-  end if;
-
-  return v_resources;
+  return v_resource;
 end;
 $$;
 
-revoke all on function public.add_user_course_resource(uuid, text, text, jsonb) from public;
-grant execute on function public.add_user_course_resource(uuid, text, text, jsonb)
+revoke all on function public.add_user_course_resource(uuid, uuid, text, text, integer, integer[], text, text, text) from public;
+grant execute on function public.add_user_course_resource(uuid, uuid, text, text, integer, integer[], text, text, text)
   to authenticated, service_role;
 
--- ==== 4.storage.sql ====
+-- Updates one resource row by id. sessionType/week/timeSlots never change
+-- once a resource is created (they're always edited from the same schedule
+-- session it belongs to), so only title/url/storage_path are settable.
+create or replace function public.update_user_course_resource(
+  p_user_id uuid,
+  p_resource_id uuid,
+  p_title text,
+  p_url text,
+  p_storage_path text
+)
+returns public.user_course_resources
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_resource public.user_course_resources;
+begin
+  if auth.uid() is distinct from p_user_id and auth.role() <> 'service_role' then
+    raise exception 'not authorized to modify resources for user %', p_user_id;
+  end if;
+
+  update public.user_course_resources
+  set title = p_title,
+      url = p_url,
+      storage_path = p_storage_path
+  where id = p_resource_id
+    and user_id = p_user_id
+  returning * into v_resource;
+
+  if not found then
+    raise exception 'resource % not found for user %', p_resource_id, p_user_id;
+  end if;
+
+  return v_resource;
+end;
+$$;
+
+revoke all on function public.update_user_course_resource(uuid, uuid, text, text, text) from public;
+grant execute on function public.update_user_course_resource(uuid, uuid, text, text, text)
+  to authenticated, service_role;
+
+-- Deletes one resource row by id. Storage cleanup for file resources
+-- happens client-side before/after this call (see useDeleteResourceMO) —
+-- this only removes the metadata row.
+create or replace function public.delete_user_course_resource(
+  p_user_id uuid,
+  p_resource_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is distinct from p_user_id and auth.role() <> 'service_role' then
+    raise exception 'not authorized to modify resources for user %', p_user_id;
+  end if;
+
+  delete from public.user_course_resources
+  where id = p_resource_id
+    and user_id = p_user_id;
+
+  if not found then
+    raise exception 'resource % not found for user %', p_resource_id, p_user_id;
+  end if;
+end;
+$$;
+
+revoke all on function public.delete_user_course_resource(uuid, uuid) from public;
+grant execute on function public.delete_user_course_resource(uuid, uuid)
+  to authenticated, service_role;
+
+-- ==== 5.storage.sql ====
 -- Private bucket for user-uploaded course resources (see
--- web2/src/features/resources). Objects are keyed
+-- web/src/features/resources). Objects are keyed
 -- "{userId}/{courseId}/{uuid}-{filename}"; RLS below restricts access to
 -- the owning user by checking that the first path segment matches
 -- auth.uid(). No manual grants here — unlike public.* tables, Supabase's

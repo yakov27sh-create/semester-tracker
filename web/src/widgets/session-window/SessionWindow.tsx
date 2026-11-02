@@ -1,13 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, PencilIcon, RefreshCcwIcon } from "lucide-react";
+import { useState } from "react";
 
-import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
@@ -20,12 +18,13 @@ import { setIntersection } from "@/shared/utils/set";
 import type { SlotIndex } from "@/entities/course/types";
 import {
   useToggleTimeslotsMO,
-  useUserCoursesQueryOptions,
-} from "@/entities/user-course/hooks";
+  useEnrollmentsQueryOptions,
+} from "@/entities/enrollment/hooks";
+import { useCourseResourcesQO } from "@/entities/resource/hooks";
 
 import { useWeeklySessionTypeProgressQO } from "@/features/course-progress/hooks";
 import AddResourcePopover from "@/features/resources/components/AddResourceForm";
-import { useResourceSignedUrlsQO } from "@/features/resources/hooks";
+import ResourceList from "@/features/resources/components/ScrollList";
 
 type SessionWindowProps = {
   courseId: string;
@@ -50,8 +49,9 @@ function overlapsSession(
 }
 
 function SessionWindow(props: SessionWindowProps) {
+  const [isEditingResources, setIsEditingResources] = useState(false);
   const { data: course, isLoading: isCourseLoading } = useQuery({
-    ...useUserCoursesQueryOptions(),
+    ...useEnrollmentsQueryOptions(),
     select: (data) => data[props.courseId],
   });
   const { data: completionPercent = 0 } = useQuery(
@@ -69,128 +69,133 @@ function SessionWindow(props: SessionWindowProps) {
     (i) => overlapsSession(i.timeSlots, props.timeSlots),
   );
 
-  const resources =
-    course?.resources.filter(
-      (r) =>
-        r.sessionType === props.sessionType &&
-        r.week === props.weekNumber &&
-        overlapsSession(new Set(r.timeSlots), props.timeSlots),
-    ) ?? [];
-
-  const storagePaths = resources
-    .map((r) => r.storagePath)
-    .filter((p): p is string => !!p);
-  const { data: signedUrls } = useQuery(useResourceSignedUrlsQO(storagePaths));
+  const { data: courseResources = [] } = useQuery(
+    useCourseResourcesQO(props.courseId),
+  );
+  const resources = courseResources.filter(
+    (r) =>
+      r.sessionType === props.sessionType &&
+      r.week === props.weekNumber &&
+      overlapsSession(new Set(r.timeSlots), props.timeSlots),
+  );
 
   return (
     <Dialog open={props.open} onOpenChange={() => props.onOpenChange()}>
       {isCourseLoading ? (
         <Spinner />
       ) : (
-        <DialogContent dir="rtl" className="sm:max-w-[425px]">
+        <DialogContent
+          dir="rtl"
+          className="sm:max-w-[425px] flex max-h-[calc(100dvh-2rem)] flex-col"
+        >
           <DialogHeader>
-            <DialogTitle dir="rtl" className="mt-2 text-center">
-              {course?.courseMeta.name}
+            <DialogTitle
+              dir="rtl"
+              className="mt-2 flex items-center justify-center gap-2"
+            >
+              <span>{props.sessionType}</span>
+              <Separator orientation="vertical" className="data-[orientation=vertical]:h-4" />
+              <span>{course?.courseMeta.name}</span>
+              <Separator orientation="vertical" className="data-[orientation=vertical]:h-4" />
+              <span>{`שבוע ${props.weekNumber}`}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col items-center gap-0.5 text-center text-sm">
-            <div className="font-bold">{props.sessionType}</div>
-            <div className="text-muted-foreground">{`שבוע: ${props.weekNumber}`}</div>
-            {scheduleItem && (
-              <>
-                <div className="text-muted-foreground">
-                  {generateDayStrings([scheduleItem.dayOfWeek])[0]}
-                  {", "}
-                  {makeTimeString(
-                    scheduleItem.startMinute,
-                    scheduleItem.endMinute,
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 flex flex-col items-center gap-0.5 text-center text-sm">
+              {scheduleItem && (
+                <>
+                  <div className="text-muted-foreground">
+                    {generateDayStrings([scheduleItem.dayOfWeek])[0]}
+                    {", "}
+                    {makeTimeString(
+                      scheduleItem.startMinute,
+                      scheduleItem.endMinute,
+                    )}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {scheduleItem.instructor}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <button
+                className={clsx(
+                  "group",
+                  "aspect-square",
+                  "flex items-center justify-center",
+                  "rounded-full",
+                  "min-h-8",
+                  "bg-completion",
+                  "border-3 border-border",
+                  "shadow-md",
+                  "hover:scale-110 cursor-pointer",
+                  !isComplete && "opacity-40",
+                )}
+                onClick={() =>
+                  toggleTimeSlotsTrigger.mutate({
+                    courseId: props.courseId,
+                    sessionType: props.sessionType,
+                    weekNumber: props.weekNumber,
+                    timeslots: props.timeSlots,
+                  })
+                }
+              >
+                <CheckIcon
+                  strokeWidth={2.5}
+                  className={clsx(
+                    !isComplete && "opacity-0 group-hover:opacity-100",
                   )}
-                </div>
-                <div className="text-muted-foreground">
-                  {scheduleItem.instructor}
-                </div>
-              </>
-            )}
+                />
+              </button>
+              <button
+                className={clsx(
+                  "aspect-square",
+                  "flex items-center justify-center",
+                  "rounded-full",
+                  "min-h-8",
+                  "border-3 border-border",
+                  "shadow-md",
+                  "hover:scale-110 cursor-pointer",
+                  "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
+                )}
+                disabled={!props.onChangeSelection}
+                onClick={() => props.onChangeSelection?.()}
+              >
+                <RefreshCcwIcon strokeWidth={2.5} className="size-4" />
+              </button>
+            </div>
           </div>
 
           <Separator />
 
-          <div className="flex justify-between items-center">
+          <div className="flex min-h-0 flex-1 gap-2">
+            {resources.length > 0 && 
             <button
+              type="button"
               className={clsx(
-                "group",
-                "aspect-square",
+                "aspect-square shrink-0 self-center",
                 "flex items-center justify-center",
                 "rounded-full",
                 "min-h-8",
-                "bg-completion",
                 "border-3 border-border",
                 "shadow-md",
-                "hover:scale-110 cursor-pointer",
-                !isComplete && "opacity-40",
+                "hover:scale-110 cursor-pointer transition-all",
+                isEditingResources && "bg-primary text-primary-foreground scale-110",
               )}
-              onClick={() =>
-                toggleTimeSlotsTrigger.mutate({
-                  courseId: props.courseId,
-                  sessionType: props.sessionType,
-                  weekNumber: props.weekNumber,
-                  timeslots: props.timeSlots,
-                })
-              }
+              aria-pressed={isEditingResources}
+              onClick={() => setIsEditingResources((editing) => !editing)}
             >
-              <CheckIcon
-                strokeWidth={2.5}
-                className={clsx(
-                  !isComplete && "opacity-0 group-hover:opacity-100",
-                )}
-              />
+              <PencilIcon strokeWidth={2.5} className="size-4" />
             </button>
-            <Button
-              variant="outline"
-              disabled={!props.onChangeSelection}
-              onClick={() => props.onChangeSelection?.()}
-            >
-              שנה בחירה
-            </Button>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-start gap-2">
-            <div className="flex-1 grid grid-cols-2 gap-2">
-              {resources.length === 0 ? (
-                <p className="text-muted-foreground text-xs col-span-2 text-center">
-                  אין קבצים
-                </p>
-              ) : (
-                resources.map((r) => {
-                  const href = r.storagePath
-                    ? signedUrls?.[r.storagePath]
-                    : r.url;
-                  return (
-                    <div
-                      key={r.storagePath ?? r.url}
-                      className="p-1 text-xs truncate text-center"
-                    >
-                      {href ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline"
-                        >
-                          {r.title}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {r.title}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
+              }
+            <div className="min-w-0 min-h-0 flex-1">
+              <ResourceList
+                resources={resources}
+                isEditMode={isEditingResources}
+              />
             </div>
             <AddResourcePopover
               courseId={props.courseId}
@@ -201,12 +206,6 @@ function SessionWindow(props: SessionWindowProps) {
               }}
             />
           </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">ביטול</Button>
-            </DialogClose>
-          </DialogFooter>
         </DialogContent>
       )}
     </Dialog>

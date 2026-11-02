@@ -13,7 +13,7 @@ schemas_dir="$script_dir/schemas"
 output_file="$script_dir/migrations/0_init.sql"
 types_targets=(
   "$script_dir/DatabaseTypes.ts"
-  "$repo_root/web2/src/shared/DatabaseTypes.ts"
+  "$repo_root/web/src/shared/DatabaseTypes.ts"
 )
 
 mkdir -p "$(dirname "$output_file")"

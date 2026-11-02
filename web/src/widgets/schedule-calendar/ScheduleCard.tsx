@@ -11,7 +11,7 @@ import type { ScheduleItem } from "@/entities/course/types";
 import {
   useToggleSelectedSectionMO,
   useToggleTimeslotsMO,
-} from "@/entities/user-course/hooks";
+} from "@/entities/enrollment/hooks";
 
 import { makeGradientBackground } from "@/features/course-customization/colors";
 import { useCourseColor } from "@/features/course-customization/hooks";
@@ -71,10 +71,10 @@ function ScheduleCard({
       transition={{ type: "spring", stiffness: 1000, damping: 25, mass: 0.2 }}
       animate={{ scale: isHeightAuto ? 1.1 : 1 }}
       className={clsx(
-        !isSelected && "opacity-50 relative",
+        isSelected ? "cursor-pointer" : "opacity-50 relative",
         "rounded-sm shadow-md",
         "border-3 border-border",
-        "flex items-center justify-center relative",
+        "flex items-start justify-center relative",
         "min-w-full min-h-full",
         className,
         isHeightAuto ? "h-auto w-fit z-20" : "h-full overflow-hidden",
@@ -129,7 +129,11 @@ function ScheduleCard({
       </div>
 
       {isSelected && !isEditMode && (
-        <div className="absolute top-1 left-1 flex flex-col gap-1">
+        <motion.div
+          layout
+          layoutDependency={isHeightAuto}
+          className="absolute top-1 left-1 flex flex-col gap-1"
+        >
           <button
             className={clsx(
               "group",
@@ -159,7 +163,7 @@ function ScheduleCard({
               className={clsx(!isComplete && "opacity-0 group-hover:opacity-100")}
             />
           </button>
-        </div>
+        </motion.div>
       )}
 
       {!isSelected && <SelectOverlay item={item} />}

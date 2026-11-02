@@ -1,10 +1,10 @@
 import {
-  userCoursesQueryKey,
-  useUserCoursesQueryOptions,
-} from "@/entities/user-course/hooks";
+  enrollmentsQueryKey,
+  useEnrollmentsQueryOptions,
+} from "@/entities/enrollment/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { UserCourseCache } from "@/entities/user-course/types";
+import type { EnrollmentCache } from "@/entities/enrollment/types";
 import { useUserContext } from "@/entities/user/UserContext";
 import { useSemesterContext } from "@/entities/semester/SemesterContext";
 
@@ -13,9 +13,9 @@ import { setCourseColorDB } from "./db";
 import { updateCourseColor } from "./object";
 
 function useCourseColor(courseId: string) {
-  const userCourseQO = useUserCoursesQueryOptions();
+  const enrollmentQO = useEnrollmentsQueryOptions();
   const { data: courseColor } = useQuery({
-    ...userCourseQO,
+    ...enrollmentQO,
     refetchOnMount: false,
     select: (data) => {
       const course = data[courseId];
@@ -41,10 +41,10 @@ function useSetCourseColor() {
   const qc = useQueryClient();
   return useMutation({
     onMutate: ({ color, courseId }, data) => {
-      const key = userCoursesQueryKey(profile!.userId, selectedSemesterId);
+      const key = enrollmentsQueryKey(profile!.userId, selectedSemesterId);
       qc.cancelQueries({ queryKey: key });
 
-      const cache = data.client.getQueryData(key) as UserCourseCache;
+      const cache = data.client.getQueryData(key) as EnrollmentCache;
       const course = cache[courseId];
 
       const updated = updateCourseColor(course, color);

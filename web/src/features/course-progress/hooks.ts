@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import { setIntersection } from "@/shared/utils/set";
 
-import { useUserCoursesQueryOptions } from "@/entities/user-course/hooks";
+import { useEnrollmentsQueryOptions } from "@/entities/enrollment/hooks";
 import type { SessionType, SlotIndex } from "@/entities/course/types";
 import {
   useCurrentWeekNumber,
@@ -15,9 +15,9 @@ function useWeeklySessionTypeProgressQO(
   weekNumber: number,
   slotIndices: Set<SlotIndex>,
 ) {
-  const userCoursesQO = useUserCoursesQueryOptions();
+  const enrollmentsQO = useEnrollmentsQueryOptions();
   return queryOptions({
-    ...userCoursesQO,
+    ...enrollmentsQO,
     refetchOnMount: false,
     select: (data) => {
       const currentIndices =
@@ -39,7 +39,7 @@ function useWeeklySessionTypeProgressQO(
 }
 
 function useCourseProgressQO(courseId: string) {
-  const userCoursesQO = useUserCoursesQueryOptions();
+  const enrollmentsQO = useEnrollmentsQueryOptions();
   const totalWeeks = useTotalWeekCount() ?? 0;
   // currentWeekNum can be negative (semester hasn't started) or greater than
   // totalWeeks (semester ended); clamp so slot counts and week slices below
@@ -50,7 +50,7 @@ function useCourseProgressQO(courseId: string) {
   );
 
   return queryOptions({
-    ...userCoursesQO,
+    ...enrollmentsQO,
     select: (data) => {
       const selectedSectionIds = data[courseId].courseSelectedSections;
       const courseProgress = data[courseId].courseProgress;
@@ -127,12 +127,12 @@ export type WeekProgressSummaries = (
 )[];
 
 function useWeekProgressSummariesQO() {
-  const userCoursesQO = useUserCoursesQueryOptions();
+  const enrollmentsQO = useEnrollmentsQueryOptions();
   const currentWeekNum = useCurrentWeekNumber() ?? 0;
   const totalWeeks = useTotalWeekCount() ?? 0;
 
   return queryOptions({
-    ...userCoursesQO,
+    ...enrollmentsQO,
     select: (data) => {
       const arrLen = totalWeeks + 1;
       // currentWeekNum can be negative (semester hasn't started) or greater

@@ -43,7 +43,7 @@ type Course_DB = {
   id: string;
   name: string;
   fauclty?: string; // TODO: make this not optional when implemented
-  givenId: string;
+  courseNumber: string;
   defaultColor: string;
   points: number;
   schedule: Record<SessionType, ScheduleItem_DB[]>;
@@ -53,7 +53,7 @@ type Course = {
   id: string;
   name: string;
   fauclty?: string; // TODO: make this not optional when implemented
-  givenId: string;
+  courseNumber: string;
   defaultColor: string;
   points: number;
   schedule: Record<SessionType, ScheduleItem[]>;

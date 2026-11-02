@@ -9,7 +9,7 @@ function rowToCourseDB(row: {
   id: string;
   name: string;
   faculty: string | null;
-  given_id: string;
+  course_number: string;
   default_color: string;
   points: number;
   schedule: unknown;
@@ -18,7 +18,7 @@ function rowToCourseDB(row: {
     id: row.id,
     name: row.name,
     fauclty: row.faculty ?? undefined,
-    givenId: row.given_id,
+    courseNumber: row.course_number,
     defaultColor: row.default_color,
     points: row.points,
     schedule: row.schedule as Course_DB["schedule"],
@@ -32,7 +32,7 @@ async function fetchCourses(
   if (courseIds.length === 0) return [];
   const { data, error } = await supabase
     .from("courses")
-    .select("id, name, faculty, given_id, default_color, points, schedule")
+    .select("id, name, faculty, course_number, default_color, points, schedule")
     .eq("university", UNIVERSITY)
     .eq("semester_id", semesterId)
     .in("id", courseIds);
@@ -46,7 +46,7 @@ async function fetchCourses(
 async function fetchAllCourses(semesterId: string): Promise<Course[]> {
   const { data, error } = await supabase
     .from("courses")
-    .select("id, name, faculty, given_id, default_color, points, schedule")
+    .select("id, name, faculty, course_number, default_color, points, schedule")
     .eq("university", UNIVERSITY)
     .eq("semester_id", semesterId);
   if (error) {

@@ -36,9 +36,9 @@ export type Database = {
     Tables: {
       courses: {
         Row: {
+          course_number: string
           default_color: string
           faculty: string | null
-          given_id: string
           id: string
           name: string
           points: number
@@ -47,10 +47,10 @@ export type Database = {
           university: string
         }
         Insert: {
+          course_number: string
           default_color: string
           faculty?: string | null
-          given_id: string
-          id: string
+          id?: string
           name: string
           points: number
           schedule?: Json
@@ -58,9 +58,9 @@ export type Database = {
           university: string
         }
         Update: {
+          course_number?: string
           default_color?: string
           faculty?: string | null
-          given_id?: string
           id?: string
           name?: string
           points?: number
@@ -74,6 +74,44 @@ export type Database = {
             columns: ["semester_id"]
             isOneToOne: false
             referencedRelation: "semesters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrollments: {
+        Row: {
+          course_id: string
+          course_progress: Json
+          course_selected_sections: Json
+          custom_color: string | null
+          is_enrolled: boolean
+          semester_id: string
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          course_progress?: Json
+          course_selected_sections?: Json
+          custom_color?: string | null
+          is_enrolled?: boolean
+          semester_id: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          course_progress?: Json
+          course_selected_sections?: Json
+          custom_color?: string | null
+          is_enrolled?: boolean
+          semester_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
@@ -105,41 +143,53 @@ export type Database = {
         }
         Relationships: []
       }
-      user_courses: {
+      user_course_resources: {
         Row: {
           course_id: string
-          course_progress: Json
-          course_selected_sections: Json
-          custom_color: string | null
-          resources: Json
+          created_at: string
+          id: string
           semester_id: string
+          session_type: string
+          storage_path: string | null
+          time_slots: number[]
+          title: string
+          url: string | null
           user_id: string
+          week_number: number
         }
         Insert: {
           course_id: string
-          course_progress?: Json
-          course_selected_sections?: Json
-          custom_color?: string | null
-          resources?: Json
+          created_at?: string
+          id?: string
           semester_id: string
+          session_type: string
+          storage_path?: string | null
+          time_slots: number[]
+          title: string
+          url?: string | null
           user_id: string
+          week_number: number
         }
         Update: {
           course_id?: string
-          course_progress?: Json
-          course_selected_sections?: Json
-          custom_color?: string | null
-          resources?: Json
+          created_at?: string
+          id?: string
           semester_id?: string
+          session_type?: string
+          storage_path?: string | null
+          time_slots?: number[]
+          title?: string
+          url?: string | null
           user_id?: string
+          week_number?: number
         }
         Relationships: [
           {
-            foreignKeyName: "user_courses_course_id_fkey"
-            columns: ["course_id"]
+            foreignKeyName: "user_course_resources_user_id_course_id_semester_id_fkey"
+            columns: ["user_id", "course_id", "semester_id"]
             isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
+            referencedRelation: "enrollments"
+            referencedColumns: ["user_id", "course_id", "semester_id"]
           },
         ]
       }
@@ -151,11 +201,38 @@ export type Database = {
       add_user_course_resource: {
         Args: {
           p_course_id: string
-          p_resource: Json
           p_semester_id: string
+          p_session_type: string
+          p_storage_path: string
+          p_timeslots: number[]
+          p_title: string
+          p_url: string
           p_user_id: string
+          p_week_number: number
         }
-        Returns: Json
+        Returns: {
+          course_id: string
+          created_at: string
+          id: string
+          semester_id: string
+          session_type: string
+          storage_path: string | null
+          time_slots: number[]
+          title: string
+          url: string | null
+          user_id: string
+          week_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_course_resources"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      delete_user_course_resource: {
+        Args: { p_resource_id: string; p_user_id: string }
+        Returns: undefined
       }
       toggle_course_progress: {
         Args: {
@@ -167,6 +244,34 @@ export type Database = {
           p_week_number: number
         }
         Returns: number[]
+      }
+      update_user_course_resource: {
+        Args: {
+          p_resource_id: string
+          p_storage_path: string
+          p_title: string
+          p_url: string
+          p_user_id: string
+        }
+        Returns: {
+          course_id: string
+          created_at: string
+          id: string
+          semester_id: string
+          session_type: string
+          storage_path: string | null
+          time_slots: number[]
+          title: string
+          url: string | null
+          user_id: string
+          week_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_course_resources"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

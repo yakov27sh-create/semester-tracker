@@ -3,17 +3,16 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
+  DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { DialogFooter, DialogHeader } from "@/shared/components/ui/dialog";
 import { Separator } from "@/shared/components/ui/separator";
 
 import {
-  useDeleteUserCourseMO,
-  useUserCoursesQueryOptions,
-} from "@/entities/user-course/hooks";
+  useUnenrollMO,
+  useEnrollmentsQueryOptions,
+} from "@/entities/enrollment/hooks";
 
 import ColorList from "@/features/course-customization/components/ColorList";
 import { useSetCourseColor } from "@/features/course-customization/hooks";
@@ -27,13 +26,13 @@ type CourseWindowProps = {
 
 function CourseWindow(props: CourseWindowProps) {
   const { data: course, isLoading: isCourseLoading } = useQuery({
-    ...useUserCoursesQueryOptions(),
+    ...useEnrollmentsQueryOptions(),
     select: (data) => {
       return data[props.courseId];
     },
   });
   const setCourseColorTrigger = useSetCourseColor();
-  const deleteCourseTrigger = useMutation(useDeleteUserCourseMO());
+  const unenrollCourseTrigger = useMutation(useUnenrollMO());
 
   return (
     <Dialog open={props.open} onOpenChange={() => props.onOpenChange()}>
@@ -52,7 +51,7 @@ function CourseWindow(props: CourseWindowProps) {
               variant="destructive"
               onClick={() => {
                 props.onOpenChange();
-                deleteCourseTrigger.mutate(props.courseId);
+                unenrollCourseTrigger.mutate(props.courseId);
               }}
             >
               מחק קורס
@@ -67,12 +66,6 @@ function CourseWindow(props: CourseWindowProps) {
               }}
             />
           </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">ביטול</Button>
-            </DialogClose>
-          </DialogFooter>
         </DialogContent>
       )}
     </Dialog>

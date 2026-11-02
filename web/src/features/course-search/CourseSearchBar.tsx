@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
 
-import { useAddUserCourseMutationOptions } from "@/entities/user-course/hooks";
+import { useAddEnrollmentMutationOptions } from "@/entities/enrollment/hooks";
 import { useAllCoursesQueryOptions } from "@/entities/course/hooks";
 import type { Course } from "@/entities/course/types";
 import { Spinner } from "@/shared/components/ui/spinner";
@@ -30,7 +30,7 @@ function CourseSearchBar() {
   const { data: courseList, isLoading: isCourseListLoading } = useQuery(
     useAllCoursesQueryOptions(),
   );
-  const addCourseTrigger = useMutation(useAddUserCourseMutationOptions());
+  const addCourseTrigger = useMutation(useAddEnrollmentMutationOptions());
 
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");

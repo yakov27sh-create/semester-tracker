@@ -1,7 +1,7 @@
-import type { UserCourse } from "@/entities/user-course/types";
+import type { Enrollment } from "@/entities/enrollment/types";
 
-function updateCourseColor(userCourse: UserCourse, color: string) {
-  const clone = structuredClone(userCourse);
+function updateCourseColor(enrollment: Enrollment, color: string) {
+  const clone = structuredClone(enrollment);
   clone.customColor = color;
   return clone;
 }

@@ -41,22 +41,22 @@ type ScheduleItem = {
 type CoursesSchedule = Record<SessionType, ScheduleItem[]>;
 
 /**
- * user_courses.course_progress
+ * enrollments.course_progress
  * Slot indices the user has marked complete, grouped by session type and
  * then by week number.
  */
-type UserCoursesProgress = Record<
+type EnrollmentsProgress = Record<
   SessionType,
   Record<WeekNumber, SlotIndex[]>
 >;
 
 /**
- * user_courses.course_selected_sections
+ * enrollments.course_selected_sections
  * The section id the user has picked for each session type. `null` means
  * the user explicitly toggled off a selection; a missing key means no
  * selection has been made yet.
  */
-type UserCoursesSelectedSections = Record<SessionType, string | null>;
+type EnrollmentsSelectedSections = Record<SessionType, string | null>;
 
 export type {
   MinutesFromMidnight,
@@ -65,6 +65,6 @@ export type {
   WeekNumber,
   ScheduleItem,
   CoursesSchedule,
-  UserCoursesProgress,
-  UserCoursesSelectedSections,
+  EnrollmentsProgress,
+  EnrollmentsSelectedSections,
 };

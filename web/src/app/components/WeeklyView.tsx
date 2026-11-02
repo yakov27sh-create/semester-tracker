@@ -7,7 +7,7 @@ import {
   useCurrentWeekNumber,
   useTotalWeekCount,
 } from "@/entities/semester/hooks";
-import { useToggleSelectedSectionMO } from "@/entities/user-course/hooks";
+import { useToggleSelectedSectionMO } from "@/entities/enrollment/hooks";
 
 import WeekSelector from "@/widgets/week-selector/WeekSelector";
 import ScheduleItemsCalendar from "@/widgets/schedule-calendar/ScheduleItemsCalendar";

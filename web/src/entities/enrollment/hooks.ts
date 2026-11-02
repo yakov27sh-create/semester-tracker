@@ -10,52 +10,54 @@ import { fetchCourses } from "../course/db";
 import type { Course, SlotIndex } from "../course/types";
 
 import {
-  fetchUserCourses,
-  addUserCourseDB,
+  fetchEnrollments,
+  addEnrollmentDB,
   setSelectedSectionIdDB,
   toggleTimeslotsDB,
-  deleteUserCourseDB,
+  unenrollDB,
 } from "./db";
 import {
-  createUserCourse,
-  createUserCourse_DB,
+  createEnrollment,
+  createEnrollment_DB,
   toggleSelectedSection,
   toggleTimeslots,
 } from "./object";
-import type { UserCourseCache } from "./types";
+import type { EnrollmentCache } from "./types";
 
-const userCoursesQueryKey = (uid?: string, semesterId?: string) => [
-  "userCourses",
+const enrollmentsQueryKey = (uid?: string, semesterId?: string) => [
+  "enrollments",
   uid,
   semesterId,
 ];
 
-function useUserCoursesQueryOptions() {
+function useEnrollmentsQueryOptions() {
   const { profile } = useUserContext();
   const { selectedSemesterId } = useSemesterContext();
-  const key = userCoursesQueryKey(profile?.userId, selectedSemesterId);
+  const key = enrollmentsQueryKey(profile?.userId, selectedSemesterId);
   return queryOptions({
     queryKey: key,
     queryFn: async () => {
-      const userCoursesData = await fetchUserCourses(
+      // Resources are their own entity with their own query — see
+      // entities/resource/hooks.ts.
+      const enrollmentsData = await fetchEnrollments(
         profile!.userId,
         selectedSemesterId!,
       );
 
-      const courseIds = userCoursesData.map((c) => c.courseId);
+      const courseIds = enrollmentsData.map((c) => c.courseId);
       const courses = await fetchCourses(courseIds, selectedSemesterId!);
 
-      const userCourses: UserCourseCache = userCoursesData.reduce(
+      const enrollments: EnrollmentCache = enrollmentsData.reduce(
         (acc, ucd) => {
           const course = courses.find((c) => c.id === ucd.courseId);
           if (!course) return acc;
-          acc[course.id] = createUserCourse(ucd, course);
+          acc[course.id] = createEnrollment(ucd, course);
           return acc;
         },
-        {} as UserCourseCache,
+        {} as EnrollmentCache,
       );
 
-      return userCourses;
+      return enrollments;
     },
     enabled: !!profile && !!selectedSemesterId,
     // Mutations on this data keep the cache correct via setQueryData
@@ -66,54 +68,54 @@ function useUserCoursesQueryOptions() {
   });
 }
 
-function useAddUserCourseMutationOptions() {
+function useAddEnrollmentMutationOptions() {
   const { profile } = useUserContext();
   const { selectedSemesterId } = useSemesterContext();
   const qc = useQueryClient();
   return mutationOptions({
     onMutate: (course) => {
       if (!profile || !selectedSemesterId) return;
-      const key = userCoursesQueryKey(profile.userId, selectedSemesterId);
+      const key = enrollmentsQueryKey(profile.userId, selectedSemesterId);
       qc.cancelQueries({ queryKey: key });
-      const userCourse_DB = createUserCourse_DB(
+      const enrollment_DB = createEnrollment_DB(
         profile.userId,
         course.id,
         selectedSemesterId,
       );
-      const newUserCourse = createUserCourse(userCourse_DB, course);
-      qc.setQueryData(key, (data: UserCourseCache) => {
-        return { ...data, [newUserCourse.courseId]: newUserCourse };
+      const newEnrollment = createEnrollment(enrollment_DB, course);
+      qc.setQueryData(key, (data: EnrollmentCache) => {
+        return { ...data, [newEnrollment.courseId]: newEnrollment };
       });
     },
 
     mutationFn: (course: Course) => {
       if (!profile) throw new Error("User not logger in");
       if (!selectedSemesterId) throw new Error("No semester selected");
-      const userCourse_DB = createUserCourse_DB(
+      const enrollment_DB = createEnrollment_DB(
         profile.userId,
         course.id,
         selectedSemesterId,
       );
 
-      return addUserCourseDB(profile.userId, userCourse_DB);
+      return addEnrollmentDB(profile.userId, enrollment_DB);
     },
     onSuccess: () => {
       qc.invalidateQueries({
-        queryKey: userCoursesQueryKey(profile?.userId, selectedSemesterId),
+        queryKey: enrollmentsQueryKey(profile?.userId, selectedSemesterId),
       });
     },
   });
 }
 
-function useDeleteUserCourseMO() {
+function useUnenrollMO() {
   const { profile } = useUserContext();
   const { selectedSemesterId } = useSemesterContext();
   const qc = useQueryClient();
   return mutationOptions({
     onMutate: (courseId) => {
       qc.setQueryData(
-        userCoursesQueryKey(profile?.userId, selectedSemesterId),
-        (data: UserCourseCache) => {
+        enrollmentsQueryKey(profile?.userId, selectedSemesterId),
+        (data: EnrollmentCache) => {
           return Object.fromEntries(
             Object.entries(data).filter((e) => e[0] != courseId),
           );
@@ -123,11 +125,11 @@ function useDeleteUserCourseMO() {
     },
     mutationFn: (courseId: string) => {
       if (!selectedSemesterId) throw new Error("No semester selected");
-      return deleteUserCourseDB(profile!.userId, courseId, selectedSemesterId);
+      return unenrollDB(profile!.userId, courseId, selectedSemesterId);
     },
     onSuccess: () => {
       qc.invalidateQueries({
-        queryKey: userCoursesQueryKey(profile?.userId, selectedSemesterId),
+        queryKey: enrollmentsQueryKey(profile?.userId, selectedSemesterId),
       });
     },
   });
@@ -140,9 +142,9 @@ function useToggleSelectedSectionMO() {
   return mutationOptions({
     onMutate: ({ courseId, sessionType, sectionId }) => {
       if (!profile) return;
-      const key = userCoursesQueryKey(profile.userId, selectedSemesterId);
+      const key = enrollmentsQueryKey(profile.userId, selectedSemesterId);
       qc.cancelQueries({ queryKey: key });
-      qc.setQueryData(key, (data: UserCourseCache) => {
+      qc.setQueryData(key, (data: EnrollmentCache) => {
         const course = data[courseId];
         const toggledCourse = toggleSelectedSection(
           course,
@@ -166,8 +168,8 @@ function useToggleSelectedSectionMO() {
       // write that whole object back.
       const course = (
         qc.getQueryData(
-          userCoursesQueryKey(profile?.userId, selectedSemesterId),
-        ) as UserCourseCache
+          enrollmentsQueryKey(profile?.userId, selectedSemesterId),
+        ) as EnrollmentCache
       )[courseId];
 
       return setSelectedSectionIdDB(
@@ -198,8 +200,8 @@ function useToggleTimeslotsMO() {
     }) => {
       if (!profile) return;
       qc.setQueryData(
-        userCoursesQueryKey(profile.userId, selectedSemesterId),
-        (data: UserCourseCache) => {
+        enrollmentsQueryKey(profile.userId, selectedSemesterId),
+        (data: EnrollmentCache) => {
           const course = data[courseId];
           const toggled = toggleTimeslots(
             course,
@@ -239,8 +241,8 @@ function useToggleTimeslotsMO() {
     // up with (the RPC's real, race-safe result) once it comes back.
     onSuccess: ({ courseId, sessionType, weekNumber, newSlots }) => {
       qc.setQueryData(
-        userCoursesQueryKey(profile?.userId, selectedSemesterId),
-        (data: UserCourseCache) => {
+        enrollmentsQueryKey(profile?.userId, selectedSemesterId),
+        (data: EnrollmentCache) => {
           const course = data[courseId];
           if (!course) return data;
           const updated = structuredClone(course);
@@ -256,10 +258,10 @@ function useToggleTimeslotsMO() {
 }
 
 export {
-  userCoursesQueryKey,
-  useUserCoursesQueryOptions,
-  useAddUserCourseMutationOptions,
-  useDeleteUserCourseMO,
+  enrollmentsQueryKey,
+  useEnrollmentsQueryOptions,
+  useAddEnrollmentMutationOptions,
+  useUnenrollMO,
   useToggleSelectedSectionMO,
   useToggleTimeslotsMO,
 };

@@ -7,11 +7,11 @@ import WeeklyCalendar, {
   CalendarContent,
 } from "@/shared/components/custom/weeklyCalendar/WeeklyCalendar";
 
-import { useUserCoursesQueryOptions } from "@/entities/user-course/hooks";
+import { useEnrollmentsQueryOptions } from "@/entities/enrollment/hooks";
 
 import { useScheduleItemsWithSelectionStatus } from "@/features/course-section-select/hooks";
 import type { ScheduleItemWSelectionStatus } from "@/features/course-section-select/types";
-import type { WeekNumber } from "@/entities/user-course/types";
+import type { WeekNumber } from "@/entities/enrollment/types";
 
 import ScheduleCard from "./ScheduleCard";
 import clsx from "clsx";
@@ -26,7 +26,7 @@ type ScheduleItemsCalendarProps = {
 };
 
 function ScheduleItemsCalendar(props: ScheduleItemsCalendarProps) {
-  const { data: userCourses } = useQuery(useUserCoursesQueryOptions());
+  const { data: enrollments } = useQuery(useEnrollmentsQueryOptions());
 
   const { data: scheduleItems } = useScheduleItemsWithSelectionStatus();
 
@@ -78,7 +78,7 @@ function ScheduleItemsCalendar(props: ScheduleItemsCalendarProps) {
                   "scale-110 opacity-85 backdrop-blur-xl",
               )}
               item={e}
-              courseName={userCourses?.[e.courseId].courseMeta.name ?? ""}
+              courseName={enrollments?.[e.courseId].courseMeta.name ?? ""}
               isSelected={e.isSelected}
               weekNumber={props.weekNum}
               onMouseEnter={() =>

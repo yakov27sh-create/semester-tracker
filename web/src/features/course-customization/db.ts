@@ -1,4 +1,4 @@
-import type { UserCourse_DB } from "@/entities/user-course/types";
+import type { Enrollment_DB } from "@/entities/enrollment/types";
 
 import { supabase } from "@/shared/supabase";
 
@@ -6,10 +6,10 @@ async function setCourseColorDB(
   userId: string,
   courseId: string,
   semesterId: string,
-  customColor: UserCourse_DB["customColor"],
+  customColor: Enrollment_DB["customColor"],
 ): Promise<void> {
   const { error } = await supabase
-    .from("user_courses")
+    .from("enrollments")
     .update({ custom_color: customColor ?? null })
     .eq("user_id", userId)
     .eq("course_id", courseId)

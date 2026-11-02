@@ -5,7 +5,7 @@ import { SunIcon, MoonIcon } from "lucide-react";
 
 import { Button } from "@/shared/components/ui/button";
 
-import { useUserCoursesQueryOptions } from "@/entities/user-course/hooks";
+import { useEnrollmentsQueryOptions } from "@/entities/enrollment/hooks";
 
 import HeaderAuth from "@/features/auth/components/HeaderAuth";
 import CourseSearchBar from "@/features/course-search/CourseSearchBar";
@@ -17,8 +17,8 @@ import { useTheme } from "../hooks";
 import { Spinner } from "@/shared/components/ui/spinner";
 
 function Header({ className }: { className: string }) {
-  const { data: userCourses, isLoading: isUserCoursesLoading } = useQuery(
-    useUserCoursesQueryOptions(),
+  const { data: enrollments, isLoading: isEnrollmentsLoading } = useQuery(
+    useEnrollmentsQueryOptions(),
   );
 
   const { theme, setTheme } = useTheme();
@@ -37,10 +37,10 @@ function Header({ className }: { className: string }) {
       </div>
 
       <div className="col-2 flex items-center justify-center min-h-20">
-        {isUserCoursesLoading ? (
+        {isEnrollmentsLoading ? (
           <Spinner />
         ) : (
-          Object.values(userCourses ?? {}).map((uc) => (
+          Object.values(enrollments ?? {}).map((uc) => (
             <button
               key={uc.courseId}
               className=" h-20 w-20 hover:scale-105"

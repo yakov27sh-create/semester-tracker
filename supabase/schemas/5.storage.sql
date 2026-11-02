@@ -1,5 +1,5 @@
 -- Private bucket for user-uploaded course resources (see
--- web2/src/features/resources). Objects are keyed
+-- web/src/features/resources). Objects are keyed
 -- "{userId}/{courseId}/{uuid}-{filename}"; RLS below restricts access to
 -- the owning user by checking that the first path segment matches
 -- auth.uid(). No manual grants here — unlike public.* tables, Supabase's
