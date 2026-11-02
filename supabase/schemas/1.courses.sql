@@ -11,6 +11,8 @@ create table if not exists public.courses (
   course_number text not null,
   default_color text not null,
   points numeric not null,
+  -- Free-text course description from the university catalog.
+  syllabus text,
   schedule jsonb not null default '{}'::jsonb,
   -- Natural key the seed script upserts on, so re-seeding keeps each
   -- course's generated id stable.

@@ -44,6 +44,7 @@ export type Database = {
           points: number
           schedule: Json
           semester_id: string
+          syllabus: string | null
           university: string
         }
         Insert: {
@@ -55,6 +56,7 @@ export type Database = {
           points: number
           schedule?: Json
           semester_id: string
+          syllabus?: string | null
           university: string
         }
         Update: {
@@ -66,6 +68,7 @@ export type Database = {
           points?: number
           schedule?: Json
           semester_id?: string
+          syllabus?: string | null
           university?: string
         }
         Relationships: [

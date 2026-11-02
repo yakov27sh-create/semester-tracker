@@ -16,6 +16,7 @@ import type {
 type TechnionCourse = {
   name: string;
   faculty?: string;
+  syllabus?: string;
   courseNumber: string;
   defaultColor: string;
   points: number;
@@ -52,6 +53,8 @@ function convertTechnionCourse(rawCourse: RawCourse): TechnionCourse {
   return {
     name: rawCourse.general["שם מקצוע"],
     faculty: rawCourse.general["פקולטה"],
+    // A few catalog entries have no syllabus; store those as null, not "".
+    syllabus: rawCourse.general["סילבוס"].trim() || undefined,
     courseNumber,
     points: Number(rawCourse.general["נקודות"]),
     defaultColor,

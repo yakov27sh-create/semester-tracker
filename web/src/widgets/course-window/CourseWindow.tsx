@@ -46,6 +46,10 @@ function CourseWindow(props: CourseWindowProps) {
             </DialogTitle>
           </DialogHeader>
           <Separator />
+          <p className="text-sm text-muted-foreground whitespace-pre-line max-h-60 overflow-y-auto">
+            {course?.courseMeta.syllabus ?? "אין סילבוס לקורס זה"}
+          </p>
+          <Separator />
           <div className="flex justify-between items-center">
             <Button
               variant="destructive"

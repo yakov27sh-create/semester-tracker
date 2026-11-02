@@ -9,6 +9,7 @@ function rowToCourseDB(row: {
   id: string;
   name: string;
   faculty: string | null;
+  syllabus?: string | null;
   course_number: string;
   default_color: string;
   points: number;
@@ -18,6 +19,7 @@ function rowToCourseDB(row: {
     id: row.id,
     name: row.name,
     fauclty: row.faculty ?? undefined,
+    syllabus: row.syllabus ?? undefined,
     courseNumber: row.course_number,
     defaultColor: row.default_color,
     points: row.points,
@@ -32,7 +34,9 @@ async function fetchCourses(
   if (courseIds.length === 0) return [];
   const { data, error } = await supabase
     .from("courses")
-    .select("id, name, faculty, course_number, default_color, points, schedule")
+    .select(
+      "id, name, faculty, syllabus, course_number, default_color, points, schedule",
+    )
     .eq("university", UNIVERSITY)
     .eq("semester_id", semesterId)
     .in("id", courseIds);

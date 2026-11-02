@@ -97,6 +97,7 @@ function toCourseRow(raw: RawCourse): CourseRow {
     semester_id: SEMESTER_ID,
     name: course.name,
     faculty: course.faculty ?? null,
+    syllabus: course.syllabus ?? null,
     course_number: course.courseNumber,
     default_color: course.defaultColor,
     points: course.points,

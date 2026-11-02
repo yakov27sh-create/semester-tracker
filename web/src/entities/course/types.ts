@@ -43,6 +43,8 @@ type Course_DB = {
   id: string;
   name: string;
   fauclty?: string; // TODO: make this not optional when implemented
+  /** Catalog course description; only loaded for enrolled courses. **/
+  syllabus?: string;
   courseNumber: string;
   defaultColor: string;
   points: number;
@@ -53,6 +55,8 @@ type Course = {
   id: string;
   name: string;
   fauclty?: string; // TODO: make this not optional when implemented
+  /** Catalog course description; only loaded for enrolled courses. **/
+  syllabus?: string;
   courseNumber: string;
   defaultColor: string;
   points: number;

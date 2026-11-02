@@ -41,6 +41,7 @@ function convertCourseDBtoCL(dbCourse: Course_DB): Course {
   return {
     id: dbCourse.id,
     name: dbCourse.name,
+    syllabus: dbCourse.syllabus,
     courseNumber: dbCourse.courseNumber,
     defaultColor: dbCourse.defaultColor,
     points: dbCourse.points,
