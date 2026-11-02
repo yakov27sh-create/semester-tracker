@@ -1,13 +1,29 @@
 import { basePastelColors } from "./colors";
 import { hebrewDayToIndex, timeToMinute } from "./timeUtils";
-import { TIME_QUANTUM_MIN } from "./types";
+import type { RawCourse, ScheduleEntry } from "./courses-fetcher/types";
 import type {
-  RawCourse,
-  ScheduleEntry,
+  CoursesSchedule,
   ScheduleItem,
   SlotIndex,
-  TechnionCourse,
-} from "./types";
+} from "../../jsonb.types";
+
+/**
+ * Converted course, shaped to match the `public.courses` columns 1:1 (minus
+ * `university` / `semester_id`, which the seed script attaches since they
+ * aren't part of the Technion catalog payload). `schedule` matches the
+ * `CoursesSchedule` jsonb contract in supabase/jsonb.types.ts exactly.
+ */
+type TechnionCourse = {
+  name: string;
+  faculty?: string;
+  courseNumber: string;
+  defaultColor: string;
+  points: number;
+  schedule: CoursesSchedule;
+};
+
+/** Most basic time unit for which progress can be tracked, measured in minutes. **/
+const TIME_QUANTUM_MIN = 30 as const;
 
 function normalizeType(t: string) {
   // Trim + collapse spaces; Technion pages sometimes contain stray whitespace
@@ -27,17 +43,16 @@ function convertTechnionCourse(rawCourse: RawCourse): TechnionCourse {
     return true;
   });
 
-  const courseId = rawCourse.general["מספר מקצוע"];
+  const courseNumber = rawCourse.general["מספר מקצוע"];
   const defaultColor =
     basePastelColors[Math.floor(Math.random() * basePastelColors.length)]!;
 
-  const schedule = createSchedule(rawCourse, courseId);
+  const schedule = createSchedule(rawCourse, courseNumber);
 
   return {
-    id: courseId,
     name: rawCourse.general["שם מקצוע"],
     faculty: rawCourse.general["פקולטה"],
-    givenId: rawCourse.general["מספר מקצוע"],
+    courseNumber,
     points: Number(rawCourse.general["נקודות"]),
     defaultColor,
     schedule,
@@ -45,7 +60,7 @@ function convertTechnionCourse(rawCourse: RawCourse): TechnionCourse {
 }
 export default convertTechnionCourse;
 
-function createSchedule(rawCourse: RawCourse, courseId: string) {
+function createSchedule(rawCourse: RawCourse, courseNumber: string) {
   const schedule: TechnionCourse["schedule"] = {};
   const scheduleEntries = rawCourse.schedule;
 
@@ -67,7 +82,7 @@ function createSchedule(rawCourse: RawCourse, courseId: string) {
         const [startStr, endStr] = i["שעה"].split(" - ");
         const start = timeToMinute(startStr!);
         const end = timeToMinute(endStr!);
-        const id = `${courseId}::${type}::${sectionId}::${dayOfWeek}::${start}-${end}::${idx}`;
+        const id = `${courseNumber}::${type}::${sectionId}::${dayOfWeek}::${start}-${end}::${idx}`;
         return convertRawEntryToScheduleItem(i, sectionId, id);
       });
 

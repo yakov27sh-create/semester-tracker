@@ -6,7 +6,7 @@ import time
 import typing
 import urllib.parse
 from collections import defaultdict
-from dataclasses import dataclass  # field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cache
 from itertools import repeat
@@ -27,18 +27,9 @@ CACHE_DIR: Optional[Path] = (
     else None
 )
 
-VERBOSE_LOGGING = True
+VERBOSE_LOGGING = False
 
 session = requests.session()
-
-session.proxies = {
-    # Use fiddler as proxy
-    # "http": "http://127.0.0.1:8888",
-    # "https": "http://127.0.0.1:8888",
-    # Use tor as proxy
-    # "http": "socks5://127.0.0.1:9050",
-    # "https": "socks5://127.0.0.1:9050",
-}
 
 
 def send_request_once(query: str, allow_empty: bool):
@@ -294,13 +285,16 @@ def get_building_name(year: int, semester: int, room_id: str):
         "בנין בורוביץ הנדסה אזרחית": "בורוביץ הנדסה אזרחית",
         "בנין דן קהאן": "דן קהאן",
         "בנין הנ' אוירונאוטית": "הנ' אוירונאוטית",
+        "בניין אמרסון": "אמרסון",
         "בנין זיסאפל": "זיסאפל",
         "בנין להנדסת חמרים": "הנדסת חמרים",
         "בנין ליידי דייוס": "ליידי דייוס",
         "בנין למדעי המחשב": "מדעי המחשב",
         "בנין ע'ש אמדו": "אמדו",
+        "בנין עש אמדו": "אמדו",
         "בנין ע'ש טאוב": "טאוב",
         "בנין ע'ש סגו": "סגו",
+        "בנין עש סגו": "סגו",
         "בנין פישבך": "פישבך",
         "בנין פקולטה לרפואה": "פקולטה לרפואה",
         "בניין ננו-אלקטרוניקה": "ננו-אלקטרוניקה",
@@ -347,6 +341,18 @@ def get_event_schedule_info(
         "$filter": (
             f"Otjid eq '{event_schedule_id}' and Peryr eq '{year}' and Perid eq"
             f" '{semester}'"
+        ),
+        "$select": ",".join(
+            [
+                "Evdat",
+                "Beguz",
+                "Enduz",
+                "Rooms/Otjid",
+                "Rooms/Name",
+                "Persons/Title",
+                "Persons/FirstName",
+                "Persons/LastName",
+            ]
         ),
         "$expand": ",".join(
             [
@@ -456,11 +462,9 @@ def parse_event_category(
             )
         ) and raw_schedule["Name"]:
             category = re.sub(r"^SE\d+\s*", "", raw_schedule["Name"])
-    # Temporary special case.
+    # Temporary (?) special case.
     elif (
-        year == 2024
-        and semester == 201
-        and course_number == "00950219"
+        course_number == "00950219"
         and category == ""
         and raw_schedule_item["Name"].startswith("תרגיל")
     ):
@@ -529,14 +533,15 @@ def parse_schedule_times(raw_schedule_item: dict) -> Optional[list[EventSchedule
     if not date_and_time_list:
         return []
 
-    if date_and_time_list in ["לֹא סָדִיר", "לא סדיר"]:
+    if date_and_time_list in ["לֹא סָדִיר", "לא סדיר", "מועדי מפגשים"]:
         return None
 
     # Skip specific dates like:
     # "27.05.: 10:00-12:00".
     # "02.02., 03.02., 04.02., בהתאמה 08:00-17:00"
+    # "06.10. 09:00-14:00, 12.10. 09:00-14:00, 15.10. 09:00-13:00"
     if re.fullmatch(
-        r"\d\d\.\d\d\.: \d\d:\d\d-\d\d:\d\d", date_and_time_list
+        r"(\d\d\.\d\d\.:? \d\d:\d\d-\d\d:\d\d, )+", date_and_time_list + ", "
     ) or re.fullmatch(
         r"(\d\d\.\d\d\., )+בהתאמה \d\d:\d\d-\d\d:\d\d", date_and_time_list
     ):
@@ -634,6 +639,22 @@ def get_course_schedule(year: int, semester: int, course_number: str):
     """Get the schedule for a course."""
     params = {
         "sap-client": "700",
+        "$select": ",".join(
+            [
+                "ZzSeSeqnr",
+                "Name",
+                "EObjectSet/Otjid",
+                "EObjectSet/CategoryText",
+                "EObjectSet/Name",
+                "EObjectSet/RoomText",
+                "EObjectSet/RoomId",
+                "EObjectSet/ScheduleSummary",
+                "EObjectSet/ScheduleText",
+                "EObjectSet/Persons/Title",
+                "EObjectSet/Persons/FirstName",
+                "EObjectSet/Persons/LastName",
+            ]
+        ),
         "$expand": ",".join(
             [
                 "EObjectSet",
@@ -671,8 +692,9 @@ def get_course_schedule(year: int, semester: int, course_number: str):
                     )
                 return retrieved_event_schedule_info
 
-            category = parse_event_category(raw_schedule_item, raw_schedule,
-                                           course_number, year, semester)
+            category = parse_event_category(
+                raw_schedule_item, raw_schedule, course_number, year, semester
+            )
 
             building_and_room = parse_room_info(raw_schedule_item, year, semester)
 
@@ -799,7 +821,7 @@ def get_exam_date_time(exam_data: list[dict[str, Any]], exam_category: str):
 
     for exam in sorted(exam_data, key=exam_data_sort_key):
         if exam["CategoryCode"] != exam_category:
-            if exam["CategoryCode"] not in ["FI", "FB", "MI", "M2"]:
+            if exam["CategoryCode"] not in ["FI", "FB", "MI", "M2", "M3"]:
                 raise RuntimeError(f"Invalid category: {exam['CategoryCode']}")
             continue
 
@@ -884,8 +906,10 @@ def get_adjoining_courses(semester_notes: str):
         courses = [x.strip() for x in match.group(0).split(",")]
     elif match := re.match(r"\d{5,8}(\s+או\s+\d{5,8})+$", content, flags=re.MULTILINE):
         courses = [x.strip() for x in match.group(0).split("או")]
-    elif match := re.match(r"(.*?)(?:\.$|\.\n|\n\n|$)", content, flags=re.DOTALL):
-        for adjoining_course in match.group(1).split(","):
+    elif match := re.match(
+        r"(.*?)(?:\.$|\.\n|\n\n|\n(?=[^\n:]+:)|$)", content, flags=re.DOTALL
+    ):
+        for adjoining_course in re.split(r",|\s+או\s+", match.group(1)):
             adjoining_course = adjoining_course.strip()
 
             # A course number, possibly followed by the course name.
@@ -928,6 +952,8 @@ def get_course_full_data(year: int, semester: int, course_number: str):
         course_number = course_number.removeprefix("SM")
     else:
         raise RuntimeError(f"Invalid course number: {course_number}")
+
+    course_name = re.sub(r"\s+", " ", sap_course["Name"].strip())
 
     points = sap_course["Points"]
     points = re.sub(r"(\.[1-9]+)0+$", r"\1", points)
@@ -988,7 +1014,7 @@ def get_course_full_data(year: int, semester: int, course_number: str):
 
     general = {
         "מספר מקצוע": course_number,
-        "שם מקצוע": sap_course["Name"],
+        "שם מקצוע": course_name,
         "סילבוס": sap_course["StudyContentDescription"],
         "פקולטה": sap_course["OrgText"],
         "מסגרת לימודים": sap_course["ZzAcademicLevelText"],
@@ -1023,7 +1049,7 @@ def get_course_full_data(year: int, semester: int, course_number: str):
         "מועד ג": "",  # TODO
         "בוחן מועד א": get_exam_date_time(exam_data, "MI"),
         "בוחן מועד ב": get_exam_date_time(exam_data, "M2"),
-        "בוחן מועד ג": "",  # TODO
+        "בוחן מועד ג": get_exam_date_time(exam_data, "M3"),
         "בוחן מועד ד": "",  # TODO
         "בוחן מועד ה": "",  # TODO
         "בוחן מועד ו": "",  # TODO
@@ -1033,7 +1059,25 @@ def get_course_full_data(year: int, semester: int, course_number: str):
         if exam_date_time:
             general[exam] = exam_date_time
 
-    schedule = get_course_schedule(year, semester, course_number)
+    for _ in range(20):
+        try:
+            schedule = get_course_schedule(year, semester, course_number)
+            break
+        except Exception as e:
+            # A temporary workaround for a specific buggy course with
+            # inconsistent schedule data - SAP returns varying data across calls
+            # for this course.
+            buggy_course = (2025, 201, "01040013")
+            msg = "Invalid events for category הרצאה and id 10"
+            if (year, semester, course_number) == buggy_course and msg in str(e):
+                print(
+                    f"Warning: [{year}/{semester}/{course_number}] Retrying schedule"
+                    " for known buggy course"
+                )
+                continue
+            raise
+    else:
+        raise RuntimeError(f"Gave up retrying buggy schedule")
 
     return {
         "general": general,
@@ -1041,42 +1085,45 @@ def get_course_full_data(year: int, semester: int, course_number: str):
     }
 
 
+def pool_init(proxies):
+    session.proxies = proxies
+
+
 def get_course_full_data_star(args):
     try:
         return get_course_full_data(*args)
     except Exception:
-        print(f"Failed to get course data for {args}")
+        print(f"Failed to get course data for {args}", flush=True)
         raise
 
 
-def postprocess_2024_200_201(result: list[dict], output_file: Path):
+def postprocess(result: list[dict], output_file: Path):
     unprocessed_file = output_file.with_stem(f"{output_file.stem}.unfiltered")
     output_file.rename(unprocessed_file)
 
     result = result.copy()
     for item in result:
-        course = item["general"]["מספר מקצוע"]
+        new_schedule = []
+        for s in item["schedule"]:
+            if s["קבוצה"] in [
+                # סינים (סטודנטים סינים שלומדים בסין).
+                77,
+                # לימודי חוץ. זו קבוצה פיקטיבית.
+                69,
+                # יש את זה רק במושגי יסוד במתמטיקה, מדובר על תוכנית אודיסאה
+                # של תלמידי תיכון שלומדים בטכניון.
+                # 40,
+                # בינלאומי.
+                # 80,
+                86,
+            ]:
+                continue
+            new_schedule.append(s)
 
-        # Requested to be filtered by the faculty.
-        is_math_course = course.startswith("0104") or course.startswith("0106")
-        if is_math_course:
-            schedule = []
-            for s in item["schedule"]:
-                if s["קבוצה"] in [
-                    # סינים (סטודנטים סינים שלומדים בסין).
-                    77,
-                    # לימודי חוץ. זו קבוצה פיקטיבית.
-                    69,
-                    # יש את זה רק במושגי יסוד במתמטיקה, מדובר על תוכנית אודיסאה
-                    # של תלמידי תיכון שלומדים בטכניון.
-                    40,
-                    # בינלאומי.
-                    80,
-                    86,
-                ]:
-                    continue
-                schedule.append(s)
-            item["schedule"] = schedule
+        # Only replace if the new schedule is non-empty. Otherwise, it might be
+        # a course specifically for international students or similar.
+        if len(new_schedule) > 0:
+            item["schedule"] = new_schedule
 
     with output_file.open("w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
@@ -1095,7 +1142,9 @@ def run(
 
     course_numbers = sorted(get_sap_course_numbers(year, semester))
 
-    with Pool(POOL_CONCURRENT_PROCESSES) as pool:
+    with Pool(
+        POOL_CONCURRENT_PROCESSES, initializer=pool_init, initargs=(session.proxies,)
+    ) as pool:
         args = list(
             zip(
                 repeat(year),
@@ -1111,8 +1160,7 @@ def run(
         json.dump(result, f, indent=2, ensure_ascii=False)
 
     if run_postprocessing:
-        if year == 2024 and semester in [200, 201]:
-            result = postprocess_2024_200_201(result, output_file)
+        result = postprocess(result, output_file)
 
     if min_js_output_file:
         with min_js_output_file.open("w", encoding="utf-8") as f:
@@ -1131,7 +1179,16 @@ def main():
     parser.add_argument("--min-js-output-file", default=None)
     parser.add_argument("--last-semesters-output-file", default=None)
     parser.add_argument("--run-postprocessing", action="store_true")
+    parser.add_argument("--proxy-server", default=None)
     args = parser.parse_args()
+
+    # Fiddler: http://127.0.0.1:8888
+    # Tor: socks5://127.0.0.1:9050
+    if args.proxy_server:
+        session.proxies = {
+            "http": args.proxy_server,
+            "https": args.proxy_server,
+        }
 
     year_and_semester = args.year_and_semester.split("-")
     if len(year_and_semester) != 2:
@@ -1142,10 +1199,29 @@ def main():
     if year_and_semester[0] == "last":
         last_semesters = get_last_semesters()
 
-        # Sometimes, only a single old semester is returned for some reason.
+        # The server sometimes returns only a few stale semesters. Reject a short
+        # list, and never regress past the previous output.
+        problems = []
         if len(last_semesters) < 3:
-            raise RuntimeError(
+            problems.append(
                 f"Expected at least 3 semesters, got {len(last_semesters)}"
+            )
+        if args.last_semesters_output_file and last_semesters:
+            prev_path = Path(args.last_semesters_output_file)
+            if prev_path.exists():
+                with prev_path.open(encoding="utf-8") as f:
+                    prev_newest = max((s["year"], s["semester"]) for s in json.load(f))
+                newest = (last_semesters[0]["year"], last_semesters[0]["semester"])
+                if newest < prev_newest:
+                    problems.append(
+                        "Newest semester {}-{} is older than the previous newest"
+                        " semester {}-{}".format(*newest, *prev_newest)
+                    )
+        if problems:
+            fetched = ", ".join(f"{s['year']}-{s['semester']}" for s in last_semesters)
+            raise RuntimeError(
+                f"Unexpected semesters from server: {fetched or 'none'}\n"
+                + "\n".join(f"- {p}" for p in problems)
             )
 
         semester_count = int(year_and_semester[1])

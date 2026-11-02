@@ -1,12 +1,19 @@
 /**
- * Seeds a mock semester (see MOCK_SEMESTER) and the `courses` table from
- * the scraped Technion catalog dump (courses.json), all under that
- * semester's id. Writes go through the service role key, since neither
- * table has an insert policy for regular users (see
+ * Fetches the Technion catalog with courses-fetcher/courses_to_json.py, then
+ * seeds a mock semester (see MOCK_SEMESTER) and the `courses` table from the
+ * fetched dump, all under that semester's id. Writes go through the service
+ * role key, since neither table has an insert policy for regular users (see
  * supabase/schemas/0.semesters.sql and 1.courses.sql).
  *
+ * Takes the same arguments as courses_to_json.py, which are passed through to
+ * it as-is (see courses-fetcher/README.md). The fetcher needs its venv:
+ *   python3 -m venv scripts/seed-technion/courses-fetcher/.venv
+ *   scripts/seed-technion/courses-fetcher/.venv/bin/pip install requests tqdm
+ *
  * Usage:
- *   SB_PRIVATE_KEY=... bun run scripts/seed-technion/seed.ts
+ *   SB_PRIVATE_KEY=... bun run scripts/seed-technion/seed.ts <YYYY-SSS> <output_file> [fetcher options] [--skip-fetch]
+ *
+ * --skip-fetch seeds the existing <output_file> without running the fetcher.
  *
  * Env:
  *   SUPABASE_URL    defaults to the local stack (http://127.0.0.1:54321)
@@ -14,23 +21,55 @@
  *   SEED_UNIVERSITY defaults to "technion"
  *   SEED_SEMESTER   defaults to "1"
  */
+import { parseArgs } from "node:util";
+
 import { createClient } from "@supabase/supabase-js";
+import { $ } from "bun";
 
 import convertTechnionCourse from "./convert-course";
-import rawCourses from "./courses.json";
-import type { RawCourse } from "./types";
+import type { RawCourse } from "./courses-fetcher/types";
 import type { Database } from "../../DatabaseTypes";
 
+const FETCHER_DIR = `${import.meta.dir}/courses-fetcher`;
+const FETCHER_PYTHON = `${FETCHER_DIR}/.venv/bin/python`;
+const FETCHER_SCRIPT = `${FETCHER_DIR}/courses_to_json.py`;
+
+// Our own flag, stripped before forwarding: seed the existing output file
+// instead of running the fetcher.
+const SKIP_FETCH_FLAG = "--skip-fetch";
+const SKIP_FETCH = process.argv.includes(SKIP_FETCH_FLAG);
+const fetcherArgv = process.argv.slice(2).filter((a) => a !== SKIP_FETCH_FLAG);
+
+// Mirrors courses_to_json.py's argparse definition, only to validate the
+// arguments and find the output file; the raw argv is what gets forwarded.
+const { positionals } = parseArgs({
+  args: fetcherArgv,
+  allowPositionals: true,
+  options: {
+    "min-js-output-file": { type: "string" },
+    "last-semesters-output-file": { type: "string" },
+    "run-postprocessing": { type: "boolean" },
+  },
+});
+const [YEAR_AND_SEMESTER, OUTPUT_FILE] = positionals;
+if (positionals.length !== 2 || !YEAR_AND_SEMESTER || !OUTPUT_FILE) {
+  throw new Error(
+    "Usage: bun run scripts/seed-technion/seed.ts <YYYY-SSS> <output_file>" +
+      " [--min-js-output-file FILE] [--last-semesters-output-file FILE] [--run-postprocessing]" +
+      ` [${SKIP_FETCH_FLAG}]`,
+  );
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SB_PRIVATE_KEY = process.env.SB_PRIVATE_KEY;
+const SB_PRIVATE_KEY = process.env.SB_PRIVATE_KEY ??  "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
 const UNIVERSITY = process.env.SEED_UNIVERSITY ?? "technion";
-const SEMESTER_ID = process.env.SEED_SEMESTER ?? "1";
+const SEMESTER_ID = process.env.SEED_SEMESTER ?? "3";
 const BATCH_SIZE = 200;
 
 if (!SB_PRIVATE_KEY || SB_PRIVATE_KEY === "placeholder") {
   throw new Error(
     "SB_PRIVATE_KEY is not set. Pass the service role key, e.g.\n" +
-      "  SB_PRIVATE_KEY=$(supabase status -o json | jq -r .SERVICE_ROLE_KEY) bun run scripts/seed-technion/seed.ts",
+      "  SB_PRIVATE_KEY=$(supabase status -o json | jq -r .SERVICE_ROLE_KEY) bun run scripts/seed-technion/seed.ts <YYYY-SSS> <output_file>",
   );
 }
 
@@ -44,7 +83,7 @@ type SemesterRow = Database["public"]["Tables"]["semesters"]["Insert"];
 // semesters.id, so this row must exist before courses are upserted.
 const MOCK_SEMESTER: SemesterRow = {
   id: SEMESTER_ID,
-  name: "חורף 2026",
+  name: "חורף 2027",
   start_date: "2026-11-01",
   end_date: "2027-01-30",
   exam_period_a_start: "2027-02-13",
@@ -54,19 +93,38 @@ const MOCK_SEMESTER: SemesterRow = {
 function toCourseRow(raw: RawCourse): CourseRow {
   const course = convertTechnionCourse(raw);
   return {
-    id: course.id,
     university: UNIVERSITY,
     semester_id: SEMESTER_ID,
     name: course.name,
     faculty: course.faculty ?? null,
-    given_id: course.givenId,
+    course_number: course.courseNumber,
     default_color: course.defaultColor,
     points: course.points,
     schedule: course.schedule,
   };
 }
 
+async function fetchCourses(): Promise<RawCourse[]> {
+  if (SKIP_FETCH) {
+    if (!(await Bun.file(OUTPUT_FILE!).exists())) {
+      throw new Error(`${SKIP_FETCH_FLAG} given but ${OUTPUT_FILE} does not exist.`);
+    }
+    console.log(`Skipping fetch, using existing ${OUTPUT_FILE}...`);
+    return Bun.file(OUTPUT_FILE!).json();
+  }
+  if (!(await Bun.file(FETCHER_PYTHON).exists())) {
+    throw new Error(
+      `Fetcher venv not found at ${FETCHER_PYTHON}; see the setup steps at the top of seed.ts.`,
+    );
+  }
+  console.log(`Fetching ${YEAR_AND_SEMESTER} courses into ${OUTPUT_FILE}...`);
+  await $`${FETCHER_PYTHON} ${FETCHER_SCRIPT} ${fetcherArgv}`;
+  return Bun.file(OUTPUT_FILE!).json();
+}
+
 async function main() {
+  const rawCourses = await fetchCourses();
+
   console.log(`Seeding semester ${MOCK_SEMESTER.id} (${MOCK_SEMESTER.name})...`);
   const { error: semesterError } = await supabase
     .from("semesters")
@@ -75,7 +133,7 @@ async function main() {
     throw new Error(`Failed upserting semester: ${semesterError.message}`);
   }
 
-  const rows = (rawCourses as RawCourse[]).map(toCourseRow);
+  const rows = rawCourses.map(toCourseRow);
 
   console.log(
     `Seeding ${rows.length} ${UNIVERSITY} courses (semester ${SEMESTER_ID}) into ${SUPABASE_URL}...`,
@@ -84,7 +142,12 @@ async function main() {
   let upserted = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-    const { error } = await supabase.from("courses").upsert(batch);
+    // courses.id is generated, so upsert on the natural key instead — this
+    // keeps existing rows (and the enrollments pointing at them) stable
+    // across re-seeds.
+    const { error } = await supabase
+      .from("courses")
+      .upsert(batch, { onConflict: "university,semester_id,course_number" });
     if (error) {
       throw new Error(
         `Failed upserting batch starting at index ${i}: ${error.message}`,
