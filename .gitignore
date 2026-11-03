@@ -1,0 +1,15 @@
+# dependencies
+node_modules
+
+# secrets
+.env
+.env.*
+!.env.example
+admin/serviceAccountKey.json
+
+# admin fetcher cache (generated data, not source)
+admin/cache
+
+# OS / editor
+.DS_Store
+.idea
