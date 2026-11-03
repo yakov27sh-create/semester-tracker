@@ -58,8 +58,11 @@ function useAddResourceMO() {
         p_week_number: resourceMeta.week,
         p_timeslots: resourceMeta.timeSlots,
         p_title: resourceMeta.title,
-        p_url: url,
-        p_storage_path: storagePath,
+        // Exactly one of these is null. The SQL function accepts null, but
+        // `supabase gen types` can't mark function args nullable, so the
+        // generated Args type them as plain string.
+        p_url: url as string,
+        p_storage_path: storagePath as string,
       });
       if (error) throw error;
       return rowToResourceMeta(data);
@@ -119,8 +122,9 @@ function useEditResourceMO() {
         p_user_id: profile.userId,
         p_resource_id: oldResource.id,
         p_title: resourceMeta.title,
-        p_url: url,
-        p_storage_path: storagePath,
+        // Nullable in SQL; see the note in useAddResourceMO.
+        p_url: url as string,
+        p_storage_path: storagePath as string,
       });
       if (error) throw error;
 
