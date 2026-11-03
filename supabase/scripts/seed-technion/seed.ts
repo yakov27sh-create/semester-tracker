@@ -10,16 +10,16 @@
  *   python3 -m venv scripts/seed-technion/courses-fetcher/.venv
  *   scripts/seed-technion/courses-fetcher/.venv/bin/pip install requests tqdm
  *
- * Usage:
- *   SB_PRIVATE_KEY=... bun run scripts/seed-technion/seed.ts <YYYY-SSS> <output_file> [fetcher options] [--skip-fetch]
+ * Usage (from supabase/, so Bun loads supabase/.env):
+ *   bun run scripts/seed-technion/seed.ts <YYYY-SSS> <output_file> [fetcher options] [--skip-fetch]
  *
  * --skip-fetch seeds the existing <output_file> without running the fetcher.
  *
- * Env:
- *   SUPABASE_URL    defaults to the local stack (http://127.0.0.1:54321)
- *   SB_PRIVATE_KEY  service role / secret key (required)
- *   SEED_UNIVERSITY defaults to "technion"
- *   SEED_SEMESTER   defaults to "1"
+ * Env (read from supabase/.env):
+ *   SUPABASE_URL        project URL (required)
+ *   SUPABASE_SECRET_KEY secret / service role key (required)
+ *   SEED_UNIVERSITY     defaults to "technion"
+ *   SEED_SEMESTER       defaults to "3"
  */
 import { parseArgs } from "node:util";
 
@@ -60,20 +60,20 @@ if (positionals.length !== 2 || !YEAR_AND_SEMESTER || !OUTPUT_FILE) {
   );
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SB_PRIVATE_KEY = process.env.SB_PRIVATE_KEY ??  "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 const UNIVERSITY = process.env.SEED_UNIVERSITY ?? "technion";
 const SEMESTER_ID = process.env.SEED_SEMESTER ?? "3";
 const BATCH_SIZE = 200;
 
-if (!SB_PRIVATE_KEY || SB_PRIVATE_KEY === "placeholder") {
+if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
   throw new Error(
-    "SB_PRIVATE_KEY is not set. Pass the service role key, e.g.\n" +
-      "  SB_PRIVATE_KEY=$(supabase status -o json | jq -r .SERVICE_ROLE_KEY) bun run scripts/seed-technion/seed.ts <YYYY-SSS> <output_file>",
+    "SUPABASE_URL and SUPABASE_SECRET_KEY must be set. Bun loads them from .env" +
+      " in the current directory, so run this from supabase/.",
   );
 }
 
-const supabase = createClient<Database>(SUPABASE_URL, SB_PRIVATE_KEY);
+const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SECRET_KEY);
 
 type CourseRow = Database["public"]["Tables"]["courses"]["Insert"];
 type SemesterRow = Database["public"]["Tables"]["semesters"]["Insert"];
@@ -84,7 +84,7 @@ type SemesterRow = Database["public"]["Tables"]["semesters"]["Insert"];
 const MOCK_SEMESTER: SemesterRow = {
   id: SEMESTER_ID,
   name: "חורף 2027",
-  start_date: "2026-11-01",
+  start_date: "2026-10-28",
   end_date: "2027-01-30",
   exam_period_a_start: "2027-02-13",
   exam_period_b_start: "2027-03-06",
